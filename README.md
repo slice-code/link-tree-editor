@@ -28,6 +28,86 @@ A powerful, no-code Linktree alternative UI component built with vanilla JavaScr
 
 ---
 
+## 🎛️ Visual Editor
+
+Selain digunakan sebagai komponen JavaScript, Linktree UI dilengkapi **Visual Editor** (`editor-ui.js`) — antarmuka drag-and-drop berbasis browser untuk membangun & mengkustomisasi linktree tanpa menulis kode.
+
+### Cara Menggunakan
+
+```html
+<!-- index.html -->
+<div id="app"></div>
+<script type="module">
+  import './el.js';
+  import createEditorUI from './linktree-ui/editor-ui.js';
+
+  const initialConfig = {
+    name: 'Your Name',
+    bio: 'Your bio here',
+    avatar: 'YN',
+    themeName: 'gradient'
+  };
+
+  const editor = createEditorUI(initialConfig);
+  document.getElementById('app').appendChild(editor.get());
+</script>
+```
+
+### Fitur Editor
+
+#### 🗂️ Navigation Sidebar
+- Navigasi cepat antar section: Appearance, Links, Groups, Images, Videos, Donations, Social
+
+#### 👁️ Live Preview
+- Preview real-time di panel tengah, selalu sinkron dengan perubahan
+- Ukuran preview mengikuti konten (scroll jika lebih dari viewport)
+
+#### 🎨 Appearance
+- **Themes** — Pilih tema bawaan (Hydra, Dark, Neon, Ocean, Gradient)
+- **Background** — Warna solid, gambar, atau gradient dua warna + arah
+- **Avatar** — Upload gambar atau gunakan teks inisial, kontrol border-radius
+- **Profile** — Nama, bio, warna teks
+- **Buttons** — Background, teks, hover BG, hover teks, border-radius
+- **Border** — Slider lebar (0–10px), gaya garis, color picker, preview langsung
+- **Shadow** — Slider X/Y/blur/spread, toggle inset, color + opacity picker
+- **🔤 Fonts** — Modal pemilih 90+ Google Fonts dengan pencarian; dropdown Font Family, Name Font, Bio Font, Link Font
+
+#### 🔗 Links
+- Tambah / hapus link
+- Drag-and-drop untuk urutkan ulang
+- Per-link: judul, URL, ikon (picker visual), warna BG, warna teks, font
+
+#### 📁 Groups
+- Buat grup link dengan judul
+- Tambah / hapus link per grup
+
+#### 📸 Images
+- Upload gambar dari file lokal
+- Kontrol: lebar, tinggi, border-radius, border, shadow, URL klik
+
+#### 🎬 Videos
+- Paste URL YouTube apa saja (pendek, panjang, embed) — ID di-extract otomatis
+- Tambah judul opsional
+
+#### 💝 Donations
+- Tambah tombol donasi dengan judul, URL, ikon visual, warna tombol
+
+#### 🌐 Social Links
+- Tambah ikon sosial dari **180+ ikon Font Awesome** di 5 kategori:
+  - Social Media (56 ikon)
+  - Commerce & Payment (36 ikon)
+  - Media & Content (37 ikon)
+  - Tech & Dev (31 ikon)
+  - General (73 ikon)
+- Pencarian ikon real-time
+
+#### 🎯 Icon Picker
+- Popup visual dengan grid ikon
+- Filter berdasarkan kategori atau pencarian teks
+- Digunakan di Links, Social Links, dan Donations
+
+---
+
 ## 🚀 Quick Start
 
 ### Installation
@@ -414,11 +494,13 @@ Elements appear in this order on the page:
 ```
 project/
 ├── linktree-ui/
-│   ├── linktree-ui.js          # Main component
-│   └── CHEATSHEET.md           # Full documentation
-├── index.html                  # Example page
-├── index.js                    # Example configuration
-└── el.js                       # DOM library (dependency)
+│   ├── linktree-ui.js          # Komponen utama (render linktree)
+│   ├── editor-ui.js            # Visual editor (drag-and-drop builder)
+│   └── CHEATSHEET.md           # Dokumentasi lengkap config
+├── index.html                  # Entry point (memuat editor)
+├── index.js                    # Contoh konfigurasi
+├── el.js                       # DOM library (dependency)
+└── sw.js                       # Service Worker
 ```
 
 ---

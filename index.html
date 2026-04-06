@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Link Three</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        .highlight { background-color: #fbbf24 !important; }
+        #output { white-space: pre-wrap; }
+    </style>
+</head>
+
+<body style="margin: 0; padding: 0;">
+    <div id="app"></div>
+    <script type="module">
+        import './el.js';
+        import createEditorUI from './linktree-ui/editor-ui.js';
+
+        // Initial config for the editor
+        const initialConfig = {
+            name: 'Hydra Juice',
+            bio: 'Your daily dose of vitamin C',
+            avatar: 'HJ',
+            themeName: 'gradient'
+        };
+
+        // Create and mount the editor UI
+        const editor = createEditorUI(initialConfig);
+        document.getElementById('app').appendChild(editor.get());
+
+    </script>
+</body>
+
+</html>

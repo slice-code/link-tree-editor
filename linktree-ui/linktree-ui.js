@@ -208,6 +208,16 @@ function createLinktreeUI(config = {}) {
     bgSize = 'cover'     // Custom background size: cover / contain / auto
   } = config;
 
+  // Helper: ensure font family values with spaces are quoted
+  function formatFontFamily(font) {
+    if (!font) return '';
+    const trimmed = font.trim();
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      return trimmed;
+    }
+    return trimmed.includes(' ') ? `"${trimmed}"` : trimmed;
+  }
+
   // Load Google Fonts if provided
   if (googleFonts && googleFonts.length > 0) {
     loadGoogleFonts(googleFonts);
@@ -228,7 +238,7 @@ function createLinktreeUI(config = {}) {
     alignItems: 'center',
     justifyContent: 'center',
     padding: isPreview ? '30px 24px' : '20px',
-    fontFamily: fontFamily || activeTheme.fontFamily,
+    fontFamily: formatFontFamily(fontFamily || activeTheme.fontFamily),
     backgroundSize: bgSize || 'cover',
     backgroundPosition: 'center center',
     backgroundRepeat: 'no-repeat',
@@ -314,7 +324,7 @@ function createLinktreeUI(config = {}) {
       fontWeight: 'bold',
       color: activeTheme.textColor,
       margin: '10px 0 5px 0',
-      fontFamily: nameFont || fontFamily || activeTheme.fontFamily
+      fontFamily: formatFontFamily(nameFont || fontFamily || activeTheme.fontFamily)
     });
 
   // Bio
@@ -325,7 +335,7 @@ function createLinktreeUI(config = {}) {
       color: activeTheme.bioColor,
       marginBottom: '12px',
       lineHeight: '1.5',
-      fontFamily: bioFont || fontFamily || activeTheme.fontFamily
+      fontFamily: formatFontFamily(bioFont || fontFamily || activeTheme.fontFamily)
     });
 
   // Social icons - built early, placed after bio
@@ -413,7 +423,7 @@ function createLinktreeUI(config = {}) {
       transition: 'all 0.3s ease',
       border: link.border || activeTheme.buttonBorder || 'none',
       boxShadow: link.boxShadow || activeTheme.buttonBoxShadow || 'none',
-      fontFamily: link.fontFamily || linkFont || fontFamily || activeTheme.fontFamily
+      fontFamily: formatFontFamily(link.fontFamily || linkFont || fontFamily || activeTheme.fontFamily)
     };
 
     const linkBtn = el('a')

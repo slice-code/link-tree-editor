@@ -205,6 +205,12 @@ export default function createEditorUI(initConfig = {}) {
   let previewIframe = null;
   let previewIframeReady = false;
   let pendingPreviewRoot = null;
+  let previewIframeFonts = [];
+
+  const areFontsEqual = (a = [], b = []) => {
+    if (a.length !== b.length) return false;
+    return a.every((font, index) => font === b[index]);
+  };
 
   // ==================== CONTENT WRAPPER (Editor + Preview) ====================
   const contentWrapper = el('div')
@@ -1370,19 +1376,19 @@ export default function createEditorUI(initConfig = {}) {
           if (!hasCustomTheme()) config.theme = null;
           updatePreview();
         }),
-        buildSliderField('Button Border Radius', config.theme?.buttonBorderRadius || '8', 0, 50, 'px', (v) => {
+        buildSliderField('Button Border Radius', config.theme?.buttonBorderRadius || baseTheme.buttonBorderRadius || '24px', 0, 50, 'px', (v) => {
           if (!config.theme) config.theme = {};
           config.theme.buttonBorderRadius = v || undefined;
           if (!hasCustomTheme()) config.theme = null;
           updatePreview();
         }),
-        buildBorderField('Button Border', config.theme?.buttonBorder || '', (v) => {
+        buildBorderField('Button Border', config.theme?.buttonBorder || baseTheme.buttonBorder || '', (v) => {
           if (!config.theme) config.theme = {};
           config.theme.buttonBorder = v === 'none' ? undefined : v || undefined;
           if (!hasCustomTheme()) config.theme = null;
           updatePreview();
         }),
-        buildShadowField('Button Box Shadow', config.theme?.buttonBoxShadow || '', (v) => {
+        buildShadowField('Button Box Shadow', config.theme?.buttonBoxShadow || baseTheme.buttonBoxShadow || '', (v) => {
           if (!config.theme) config.theme = {};
           config.theme.buttonBoxShadow = v === 'none' ? undefined : v || undefined;
           if (!hasCustomTheme()) config.theme = null;
@@ -2563,10 +2569,10 @@ export default function createEditorUI(initConfig = {}) {
 
     // Parse border: "1px solid #fff"
     const parseBorder = (border) => {
-      if (!border) return { width: 1, style: 'solid', color: '#ffffff' };
+      if (!border || border === 'none') return { width: 0, style: 'none', color: '#ffffff' };
       const match = border.match(/(\d+)px\s+(\w+)\s+(#[0-9a-fA-F]{3,8}|\w+)/);
       return match ? { width: parseInt(match[1]), style: match[2], color: match[3] }
-        : { width: 1, style: 'solid', color: '#ffffff' };
+        : { width: 0, style: 'none', color: '#ffffff' };
     };
 
     const current = parseBorder(value);
@@ -3315,7 +3321,7 @@ export default function createEditorUI(initConfig = {}) {
       'Dosis', 'Work Sans', 'Quicksand', 'Heebo', 'Manrope',
       'Barlow', 'Rubik', 'Outfit', 'Mulish', 'Space Grotesk',
       'Lexend', 'Merriweather', 'IBM Plex Sans', 'Sora', 'Inconsolata',
-      'Comic Neue', 'Caveat', 'Fredoka', 'Pacifico', 'Righteous',
+      'Comic Neue', 'Comic Sans MS', 'Caveat', 'Fredoka', 'Pacifico', 'Righteous',
       'Nunito', 'Oswald', 'Roboto Condensed', 'Lora', 'Garamond',
       'Bodoni Moda', 'Cormorant', 'Abhaya Libre', 'Baskervville', 'Bitter',
       'Courier Prime', 'JetBrains Mono', 'IBM Plex Mono', 'Roboto Mono', 'Fira Code',
@@ -3338,8 +3344,13 @@ export default function createEditorUI(initConfig = {}) {
       display: 'flex', flexDirection: 'column'
     });
 
+    const headerContent = el('div').css({
+      padding: '24px 24px 0 24px',
+      borderBottom: '1px solid #e5e7eb'
+    });
+
     const scrollableContent = el('div').css({
-      flex: '1', overflowY: 'auto', padding: '24px', borderBottom: '1px solid #e5e7eb'
+      flex: '1', overflowY: 'auto', padding: '0 24px 24px 24px'
     });
 
     const title = el('h3').text('Select Google Fonts').css({
@@ -3460,8 +3471,9 @@ export default function createEditorUI(initConfig = {}) {
     });
 
     selectedList.child([selectedTitle, selectedItems]);
-    scrollableContent.child([title, searchInput, availableTitle, fontsList, selectedList]);
-    modalContent.child([scrollableContent, buttonRow]);
+    headerContent.child([title, searchInput, selectedList]);
+    scrollableContent.child([availableTitle, fontsList]);
+    modalContent.child([headerContent, scrollableContent, buttonRow]);
     modal.child(modalContent);
 
     return modal;
@@ -3514,7 +3526,7 @@ export default function createEditorUI(initConfig = {}) {
 
     select.on('change', (e) => {
       config[configKey] = e.target.value;
-      updatePreview();
+      updateUI();
     });
 
     field.child([labelEl, select]);
@@ -3845,7 +3857,12 @@ export default function createEditorUI(initConfig = {}) {
     previewDom.style.overflow = 'hidden';
     previewDom.style.overflowX = 'hidden';
 
-    if (!previewIframe) {
+    const currentFonts = config.googleFonts || [];
+    const needNewIframe = !previewIframe || !areFontsEqual(previewIframeFonts, currentFonts);
+
+    if (needNewIframe) {
+      previewIframeFonts = [...currentFonts];
+      previewIframeReady = false;
       previewDom.innerHTML = '';
       previewIframe = document.createElement('iframe');
       previewIframe.style.width = '100%';
@@ -3854,7 +3871,10 @@ export default function createEditorUI(initConfig = {}) {
       previewIframe.style.display = 'block';
       previewIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
 
-      const html = `<!DOCTYPE html><html><head><base target="_blank"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" /><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:auto;}</style></head><body></body></html>`;
+      const googleFontLink = currentFonts.length > 0
+        ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${currentFonts.map(font => font.replace(/\s+/g, '+')).join('&family=')}&display=swap" />`
+        : '';
+      const html = `<!DOCTYPE html><html><head><base target="_blank">${googleFontLink}<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" /><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:auto;}</style></head><body></body></html>`;
       previewIframe.srcdoc = html;
       previewIframe.onload = () => {
         const doc = previewIframe.contentDocument || previewIframe.contentWindow?.document;

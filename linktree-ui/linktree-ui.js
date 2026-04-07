@@ -222,9 +222,19 @@ function createLinktreeUI(config = {}) {
     const socialContainer = el('div')
       .css({
         display: 'flex',
+        flexWrap: 'nowrap',
         justifyContent: 'center',
         gap: '15px',
-        marginBottom: '15px'
+        marginBottom: '15px',
+        overflowX: 'auto',
+        whiteSpace: 'nowrap',
+        scrollbarWidth: 'thin',
+        WebkitOverflowScrolling: 'touch',
+        paddingBottom: '2px',
+        // Optional: hide scrollbar for cleaner look (uncomment if diinginkan)
+        // scrollbarColor: 'rgba(0,0,0,0.2) transparent',
+        // msOverflowStyle: 'none',
+        // '&::-webkit-scrollbar': { display: 'none' },
       });
 
     const socialIcons = socialLinks.map(social => {

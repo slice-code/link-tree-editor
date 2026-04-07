@@ -700,10 +700,96 @@ export default function createEditorUI(initConfig = {}) {
       ]),
 
       // Bottom image
-      buildField('Bottom Image URL (optional)', config.bottomImage || '', (v) => {
-        config.bottomImage = v;
-        updatePreview();
-      })
+      (() => {
+        const wrapper = el('div').css({ marginBottom: '18px' });
+        // State: mode ('url' or 'upload')
+        let mode = 'url';
+        if (config.bottomImage && config.bottomImage.startsWith('data:')) mode = 'upload';
+
+        // Radio buttons
+        const radioRow = el('div').css({ display: 'flex', gap: '18px', marginBottom: '8px', alignItems: 'center' });
+        const urlRadio = el('input').attr('type', 'radio').attr('name', 'bottomImageMode').attr('id', 'bottomImageUrlRadio').attr('value', 'url');
+        const uploadRadio = el('input').attr('type', 'radio').attr('name', 'bottomImageMode').attr('id', 'bottomImageUploadRadio').attr('value', 'upload');
+        if (mode === 'url') urlRadio.get().checked = true;
+        if (mode === 'upload') uploadRadio.get().checked = true;
+        const urlLabel = el('label').attr('for', 'bottomImageUrlRadio').text('URL').css({ cursor: 'pointer' });
+        const uploadLabel = el('label').attr('for', 'bottomImageUploadRadio').text('Upload').css({ cursor: 'pointer' });
+        urlLabel.on('click', () => { urlRadio.get().checked = true; urlRadio.get().dispatchEvent(new Event('change', { bubbles: true })); });
+        uploadLabel.on('click', () => { uploadRadio.get().checked = true; uploadRadio.get().dispatchEvent(new Event('change', { bubbles: true })); });
+        radioRow.child([
+          urlRadio,
+          urlLabel,
+          uploadRadio,
+          uploadLabel
+        ]);
+        wrapper.child(radioRow);
+
+        // URL input
+        const urlInput = el('input')
+          .attr('type', 'text')
+          .attr('placeholder', 'Bottom Image URL (optional)')
+          .css({
+            width: '100%', padding: '8px', border: '1px solid #d1d5db',
+            borderRadius: '6px', fontSize: '13px', marginBottom: '6px', boxSizing: 'border-box',
+            backgroundColor: mode === 'url' ? '#fff' : '#f3f4f6', color: '#374151'
+          });
+        urlInput.get().value = (mode === 'url' && config.bottomImage && !config.bottomImage.startsWith('data:')) ? config.bottomImage : '';
+        urlInput.get().disabled = mode !== 'url';
+        urlInput.on('input', (e) => {
+          if (mode === 'url') {
+            config.bottomImage = e.target.value;
+            updatePreview();
+          }
+        });
+        wrapper.child(urlInput);
+
+        // Upload button
+        const fileInput = el('input')
+          .attr('type', 'file')
+          .attr('accept', 'image/*')
+          .css({ display: 'none' });
+        const uploadBtn = el('button')
+          .text('📁 Upload Bottom Image')
+          .css({
+            width: '100%', padding: '10px', backgroundColor: mode === 'upload' ? '#eef2ff' : '#f3f4f6',
+            border: '1px dashed #6366f1', borderRadius: '6px', cursor: mode === 'upload' ? 'pointer' : 'not-allowed',
+            fontSize: '13px', color: '#6366f1', fontWeight: '500', marginTop: '6px', opacity: mode === 'upload' ? 1 : 0.6
+          })
+          .on('click', () => {
+            if (mode === 'upload') fileInput.get().click();
+          });
+        fileInput.on('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            config.bottomImage = ev.target.result;
+            updatePreview();
+          };
+          reader.readAsDataURL(file);
+        });
+        wrapper.child([fileInput, uploadBtn]);
+
+        // Radio change logic
+        urlRadio.on('change', () => {
+          mode = 'url';
+          urlInput.get().disabled = false;
+          urlInput.css({ backgroundColor: '#fff' });
+          uploadBtn.css({ cursor: 'not-allowed', backgroundColor: '#f3f4f6', opacity: 0.6 });
+          if (urlInput.get().value) {
+            config.bottomImage = urlInput.get().value;
+            updatePreview();
+          }
+        });
+        uploadRadio.on('change', () => {
+          mode = 'upload';
+          urlInput.get().disabled = true;
+          urlInput.css({ backgroundColor: '#f3f4f6' });
+          uploadBtn.css({ cursor: 'pointer', backgroundColor: '#eef2ff', opacity: 1 });
+        });
+
+        return wrapper;
+      })()
     ]);
 
     return section;
@@ -1648,35 +1734,66 @@ export default function createEditorUI(initConfig = {}) {
       .text(label)
       .css({ fontSize: '13px', fontWeight: '500', color: '#374151', width: '140px', flexShrink: 0 });
 
-    const displayColor = value || placeholder || '#333333';
-    // Ensure valid hex for color input (can't handle rgba etc)
-    const toHex = (c) => {
-      if (!c) return '#333333';
-      if (/^#[0-9a-fA-F]{3,8}$/.test(c)) return c.length <= 5 ? '#' + c[1]+c[1]+c[2]+c[2]+c[3]+c[3] : c.slice(0, 7);
-      return '#333333';
-    };
-    const hexColor = toHex(displayColor);
+    // Helper: parse color and opacity from value
+    function parseColorAndOpacity(val) {
+      if (!val) return { color: '#333333', opacity: 1 };
+      // rgba or rgb
+      const rgbaMatch = val.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+      if (rgbaMatch) {
+        const r = parseInt(rgbaMatch[1]), g = parseInt(rgbaMatch[2]), b = parseInt(rgbaMatch[3]);
+        const a = rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : 1;
+        return { color: `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`, opacity: a };
+      }
+      // hex with alpha
+      if (/^#[0-9a-fA-F]{8}$/.test(val)) {
+        const hex = val.slice(1, 7);
+        const alpha = parseInt(val.slice(7, 9), 16) / 255;
+        return { color: `#${hex}`, opacity: alpha };
+      }
+      // hex
+      if (/^#[0-9a-fA-F]{3,6}$/.test(val)) return { color: val, opacity: 1 };
+      return { color: '#333333', opacity: 1 };
+    }
+
+    // Helper: combine color + opacity to rgba
+    function toRgba(hex, opacity) {
+      let c = hex.replace('#', '');
+      if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+      const num = parseInt(c, 16);
+      const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+      return `rgba(${r},${g},${b},${opacity})`;
+    }
+
+    const { color: initialColor, opacity: initialOpacity } = parseColorAndOpacity(value || placeholder || '#333333');
 
     const colorPreview = el('div')
       .css({
         width: '32px', height: '32px', borderRadius: '6px', flexShrink: 0,
         border: value ? '2px solid #6366f1' : '1px solid #d1d5db',
-        backgroundColor: displayColor,
+        backgroundColor: toRgba(initialColor, initialOpacity),
         cursor: 'pointer'
       });
 
     const colorInput = el('input')
       .attr('type', 'color')
       .css({ width: '0', height: '0', opacity: '0', position: 'absolute' });
-    colorInput.get().value = hexColor;
-    colorInput.on('input', (e) => {
-      textInput.get().value = e.target.value;
-      colorPreview.css({ backgroundColor: e.target.value, border: '2px solid #6366f1' });
-      onChange(e.target.value);
-    });
+    colorInput.get().value = initialColor;
 
-    colorPreview.on('click', () => colorInput.get().click());
+    // Opacity slider
+    const opacityInput = el('input')
+      .attr('type', 'range')
+      .attr('min', '0')
+      .attr('max', '100')
+      .attr('step', '1')
+      .css({ width: '70px', accentColor: '#6366f1', cursor: 'pointer' });
+    opacityInput.get().value = Math.round(initialOpacity * 100);
 
+    // Opacity label
+    const opacityLabel = el('span')
+      .text(`${Math.round(initialOpacity * 100)}%`)
+      .css({ fontSize: '12px', color: '#6366f1', minWidth: '32px', textAlign: 'right' });
+
+    // Text input
     const textInput = el('input')
       .attr('type', 'text')
       .attr('placeholder', placeholder ? `Theme: ${placeholder}` : '#hex or empty')
@@ -1684,17 +1801,44 @@ export default function createEditorUI(initConfig = {}) {
         flex: '1', padding: '6px 8px', border: '1px solid #d1d5db',
         borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box'
       });
-    textInput.get().value = value;
-    textInput.on('input', (e) => {
-      const c = e.target.value;
-      colorPreview.css({
-        backgroundColor: c || placeholder || '#333333',
-        border: c ? '2px solid #6366f1' : '1px solid #d1d5db'
-      });
-      onChange(c);
+    textInput.get().value = value || toRgba(initialColor, initialOpacity);
+
+    // State
+    let currentColor = initialColor;
+    let currentOpacity = initialOpacity;
+
+    function updateAll(newColor, newOpacity) {
+      const rgba = toRgba(newColor, newOpacity);
+      colorPreview.css({ backgroundColor: rgba, border: '2px solid #6366f1' });
+      textInput.get().value = rgba;
+      opacityLabel.text(`${Math.round(newOpacity * 100)}%`);
+      onChange(rgba);
+    }
+
+    colorInput.on('input', (e) => {
+      currentColor = e.target.value;
+      updateAll(currentColor, currentOpacity);
     });
 
-    row.child([labelEl, colorPreview, colorInput, textInput]);
+    opacityInput.on('input', (e) => {
+      currentOpacity = parseInt(e.target.value, 10) / 100;
+      updateAll(currentColor, currentOpacity);
+    });
+
+    colorPreview.on('click', () => colorInput.get().click());
+
+    textInput.on('input', (e) => {
+      // Try to parse rgba or hex
+      const c = e.target.value;
+      const parsed = parseColorAndOpacity(c);
+      currentColor = parsed.color;
+      currentOpacity = parsed.opacity;
+      colorInput.get().value = currentColor;
+      opacityInput.get().value = Math.round(currentOpacity * 100);
+      updateAll(currentColor, currentOpacity);
+    });
+
+    row.child([labelEl, colorPreview, colorInput, textInput, opacityInput, opacityLabel]);
     return row;
   }
 
@@ -2099,24 +2243,19 @@ export default function createEditorUI(initConfig = {}) {
       });
     if (!currentValue) preview.text('?').css({ fontSize: '14px', color: '#9ca3af' });
 
-    const textInput = el('input').attr('type', 'text').attr('placeholder', 'Icon class...')
+    const textInput = el('input')
+      .attr('type', 'text')
+      .attr('placeholder', 'Icon class...')
+      .attr('readonly', true)
       .css({
         flex: '1', padding: '8px', border: '1px solid #d1d5db',
-        borderRadius: '4px', fontSize: '12px'
+        borderRadius: '4px', fontSize: '12px', backgroundColor: '#f3f4f6', color: '#6b7280', cursor: 'pointer'
       });
     textInput.get().value = currentValue || '';
-    textInput.on('input', (e) => {
-      const v = e.target.value;
-      preview.attr('class', v || '');
-      if (!v) { preview.text('?'); preview.css({ color: '#9ca3af' }); }
-      else { preview.text(''); preview.css({ color: '#374151' }); }
-      onChange(v);
-    });
+    // Remove manual input handler, only update via picker
 
-    const pickBtn = el('button').text('🎨').css({
-      width: '36px', height: '36px', backgroundColor: '#6366f1', color: '#fff',
-      border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '16px', flexShrink: '0'
-    }).on('click', () => {
+
+    function openIconPicker() {
       const modal = buildIconPickerModal(textInput.get().value, (cls) => {
         textInput.get().value = cls;
         preview.attr('class', cls || '');
@@ -2125,7 +2264,14 @@ export default function createEditorUI(initConfig = {}) {
         onChange(cls);
       });
       document.body.appendChild(modal.get());
-    });
+    }
+
+    const pickBtn = el('button').text('🎨').css({
+      width: '36px', height: '36px', backgroundColor: '#6366f1', color: '#fff',
+      border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '16px', flexShrink: '0'
+    }).on('click', openIconPicker);
+
+    textInput.on('click', openIconPicker);
 
     row.child([preview, textInput, pickBtn]);
     wrapper.child(row);

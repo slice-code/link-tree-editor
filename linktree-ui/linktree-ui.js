@@ -86,6 +86,7 @@ function createLinktreeUI(config = {}) {
     groups = [],  // Array of link groups
     videos = [],  // Array of videos
     images = [],  // Array of custom images
+    imageColumns = 1,
     donations = [], // Array of donation buttons
     socialLinks = [],
     bottomImage = null,
@@ -113,17 +114,19 @@ function createLinktreeUI(config = {}) {
 
   // Create main container CSS
   const containerCSS = {
-    minHeight: '100vh',
-    height: isPreview ? 'auto' : '100vh',
+    minHeight: '100%',
+    height: 'auto',
+    maxHeight: 'auto',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px',
+    padding: isPreview ? '30px 24px' : '20px',
     fontFamily: fontFamily || activeTheme.fontFamily,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
-    backgroundAttachment: isPreview ? 'scroll' : 'fixed'
+    backgroundAttachment: isPreview ? 'scroll' : 'fixed',
+    boxSizing: 'border-box'
   };
 
   // Handle background based on bgMode (explicit choice) or theme defaults
@@ -154,9 +157,11 @@ function createLinktreeUI(config = {}) {
   // Create content wrapper
   const content = el('div')
     .css({
-      maxWidth: '500px',
+      maxWidth: isPreview ? '480px' : '500px',
       width: '100%',
-      textAlign: 'center'
+      textAlign: 'center',
+      margin: '0 auto',
+      boxSizing: 'border-box'
     });
 
     // Create avatar - can be image or text
@@ -391,7 +396,9 @@ function createLinktreeUI(config = {}) {
         display: 'flex',
         flexDirection: 'column',
         gap: '15px',
-        marginTop: '30px'
+        marginTop: '30px',
+        width: '100%',
+        boxSizing: 'border-box'
       });
 
     videos.forEach(video => {
@@ -415,14 +422,69 @@ function createLinktreeUI(config = {}) {
           paddingBottom: '56.25%', // 16:9 aspect ratio
           position: 'relative',
           overflow: 'hidden',
-          borderRadius: '12px'
+          borderRadius: '12px',
+          backgroundColor: '#000'
+        });
+
+      const iframeWrapper = el('div')
+        .css({
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          width: '100%',
+          height: '100%',
+          zIndex: '1'
         })
         .html(`<iframe
-          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;"
-          src="${video.embed_url || `https://www.youtube.com/embed/${video.youtube_id || ''}`}"
+          style="width: 100%; height: 100%; border: none;"
+          src="${video.embed_url || `https://www.youtube.com/embed/${video.youtube_id || ''}` }"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowfullscreen>
         </iframe>`);
+
+      videoWrapper.child(iframeWrapper);
+
+      if (video.cover) {
+        const playUrl = video.embed_url || `https://www.youtube.com/embed/${video.youtube_id || ''}`;
+        const autoplayUrl = playUrl.includes('?') ? `${playUrl}&autoplay=1` : `${playUrl}?autoplay=1`;
+
+        const coverOverlay = el('div')
+          .css({
+            position: 'absolute',
+            inset: '0',
+            backgroundImage: `url('${video.cover}')`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            zIndex: '2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          })
+          .on('click', () => {
+            const iframe = iframeWrapper.get().querySelector('iframe');
+            if (iframe) {
+              iframe.src = autoplayUrl;
+            }
+            coverOverlay.get().remove();
+          });
+
+        const playIcon = el('div')
+          .css({
+            width: '60px',
+            height: '60px',
+            borderRadius: '50%',
+            backgroundColor: 'rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.25)'
+          })
+          .html('<i class="fas fa-play" style="color:#fff; font-size:24px;"></i>');
+
+        coverOverlay.child(playIcon);
+        videoWrapper.child(coverOverlay);
+      }
 
       videosContainer.child(videoWrapper);
     });
@@ -434,8 +496,8 @@ function createLinktreeUI(config = {}) {
   if (images && images.length > 0) {
     const imagesContainer = el('div')
       .css({
-        display: 'flex',
-        flexDirection: 'column',
+        display: 'grid',
+        gridTemplateColumns: imageColumns === 2 ? '1fr 1fr' : '1fr',
         gap: '15px',
         marginTop: '30px'
       });
@@ -474,25 +536,49 @@ function createLinktreeUI(config = {}) {
           alignItems: 'center'
         });
 
-      // If image has a link, wrap it in anchor tag
-      if (image.url) {
-        imageWrapper.html(`
-          <a href="${image.url}" target="_blank" rel="noopener noreferrer" style="display: flex; width: 100%; justify-content: center;">
+      if (image.src) {
+        // If image has a link, wrap it in anchor tag
+        if (image.url) {
+          imageWrapper.html(`
+            <a href="${image.url}" target="_blank" rel="noopener noreferrer" style="display: flex; width: 100%; justify-content: center;">
+              <img 
+                src="${image.src}" 
+                alt="${image.alt || 'Image'}"
+                style="${imageStyles}"
+              />
+            </a>
+          `);
+        } else {
+          // Just display the image
+          imageWrapper.html(`
             <img 
               src="${image.src}" 
               alt="${image.alt || 'Image'}"
               style="${imageStyles}"
             />
-          </a>
-        `);
+          `);
+        }
       } else {
-        // Just display the image
+        const placeholderStyles = `
+          width: 100%;
+          min-height: 120px;
+          border-radius: ${image.borderRadius || '8px'};
+          border: 1px dashed #d1d5db;
+          background: #fff;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: #9ca3af;
+          padding: 16px;
+          box-sizing: border-box;
+        `;
+
         imageWrapper.html(`
-          <img 
-            src="${image.src}" 
-            alt="${image.alt || 'Image'}"
-            style="${imageStyles}"
-          />
+          <div style="${placeholderStyles}">
+            <i class="fas fa-image" style="font-size: 28px; margin-bottom: 8px;"></i>
+            <span style="font-size: 12px;">No image selected</span>
+          </div>
         `);
       }
 

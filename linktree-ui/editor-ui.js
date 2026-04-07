@@ -32,6 +32,7 @@ export default function createEditorUI(initConfig = {}) {
     links: [],
     videos: [],
     images: [],
+    imageColumns: 1,
     donations: [],
     socialLinks: [
       { icon: 'fab fa-instagram', url: 'https://instagram.com' },
@@ -53,13 +54,68 @@ export default function createEditorUI(initConfig = {}) {
   // ==================== MAIN LAYOUT ====================
   const container = el('div')
     .css({
-      display: 'grid',
-      gridTemplateColumns: '200px 1fr 350px',
-      gridTemplateRows: '100vh',
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      width: '100%',
+      minHeight: '100vh',
       height: '100vh',
       overflow: 'hidden',
-      backgroundColor: '#f5f5f5'
+      backgroundColor: '#f5f5f5',
+      boxSizing: 'border-box'
     });
+
+  let mobileSidebarOpen = false;
+
+  const mobileMenuBtn = el('button')
+    .text('Menu')
+    .css({
+      padding: '10px 18px',
+      backgroundColor: '#f3f4f6',
+      color: '#374151',
+      border: '1px solid #d1d5db',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      display: 'none'
+    })
+    .on('click', () => {
+      mobileSidebarOpen = !mobileSidebarOpen;
+      mobileViewMode = mobileSidebarOpen ? 'menu' : 'editor';
+      updateUI();
+    });
+
+  const topBar = el('div')
+    .css({
+      gridColumn: '1 / -1',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '12px',
+      padding: '16px 24px',
+      backgroundColor: '#ffffff',
+      borderBottom: '1px solid #e5e7eb',
+      zIndex: '10'
+    })
+    .child([
+      el('div').child([
+        el('h1').text('Linktree Editor').css({ margin: '0', fontSize: '18px', fontWeight: '700', color: '#111827' }),
+        el('p').text('Build and preview your page here').css({ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' })
+      ]),
+      el('button').text('Publish').css({
+        padding: '10px 18px',
+        backgroundColor: '#6366f1',
+        color: '#ffffff',
+        border: 'none',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        fontSize: '14px',
+        fontWeight: '600'
+      }).on('click', () => {
+        console.log('Publish clicked', config);
+      })
+    ]);
 
   // ==================== SIDEBAR ====================
   const sidebar = el('div')
@@ -110,12 +166,17 @@ export default function createEditorUI(initConfig = {}) {
       backgroundColor: '#ffffff',
       overflowY: 'auto',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      flex: '1',
+      minWidth: '0',
+      minHeight: '0',
+      boxSizing: 'border-box'
     });
 
   const contentArea = el('div')
     .css({
       flex: '1',
+      minHeight: '0',
       padding: '30px'
     });
 
@@ -127,13 +188,170 @@ export default function createEditorUI(initConfig = {}) {
       backgroundColor: '#f9fafb',
       overflowY: 'auto',
       overflowX: 'hidden',
-      borderLeft: '1px solid #e5e7eb'
+      borderLeft: '1px solid #e5e7eb',
+      display: 'flex',
+      flexDirection: 'column',
+      width: '480px',
+      minWidth: '0',
+      minHeight: '0',
+      flex: '0 0 480px',
+      boxSizing: 'border-box'
     });
+
+  // ==================== CONTENT WRAPPER (Editor + Preview) ====================
+  const contentWrapper = el('div')
+    .css({
+      display: 'flex',
+      width: '100%',
+      minHeight: '0',
+      flex: '1',
+      overflow: 'hidden'
+    })
+    .child([centerPanel, previewPanel]);
+
+  const bodyWrapper = el('div')
+    .css({
+      display: 'flex',
+      flexDirection: 'row',
+      width: '100%',
+      minHeight: '0',
+      flex: '1',
+      overflow: 'hidden'
+    })
+    .child([sidebar, contentWrapper]);
+
+  const mobileViewTabs = el('div')
+    .css({
+      display: 'none',
+      width: '100%',
+      backgroundColor: '#ffffff',
+      borderBottom: '1px solid #e5e7eb',
+      padding: '8px 16px',
+      gap: '8px',
+      justifyContent: 'center',
+      alignItems: 'center'
+    });
+
+  let mobileViewMode = 'editor';
+
+  const editorTabBtn = el('button')
+    .text('Editor')
+    .css({
+      padding: '8px 14px',
+      border: '1px solid #d1d5db',
+      borderRadius: '999px',
+      backgroundColor: '#ffffff',
+      color: '#374151',
+      cursor: 'pointer',
+      fontSize: '13px',
+      fontWeight: '600'
+    })
+    .on('click', () => {
+      mobileViewMode = 'editor';
+      updateUI();
+    });
+
+  const previewTabBtn = el('button')
+    .text('Preview')
+    .css({
+      padding: '8px 14px',
+      border: '1px solid #d1d5db',
+      borderRadius: '999px',
+      backgroundColor: '#ffffff',
+      color: '#374151',
+      cursor: 'pointer',
+      fontSize: '13px',
+      fontWeight: '600'
+    })
+    .on('click', () => {
+      mobileSidebarOpen = false;
+      mobileViewMode = 'preview';
+      updateUI();
+    });
+
+  mobileViewTabs.child([mobileMenuBtn, editorTabBtn, previewTabBtn]);
+
+  const MOBILE_BREAKPOINT = 960;
+  function applyResponsiveLayout() {
+    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+
+    container.css({
+      width: '100%',
+      minHeight: '100vh',
+      height: '100vh'
+    });
+
+    topBar.css({
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      flexWrap: 'nowrap',
+      gap: '8px',
+      padding: isMobile ? '10px 14px' : '16px 24px'
+    });
+
+      mobileMenuBtn.css({ display: isMobile ? 'inline-flex' : 'none' });
+
+    const menuActive = isMobile && mobileViewMode === 'menu';
+    const topOffset = topBar.get().offsetHeight + mobileViewTabs.get().offsetHeight;
+
+    sidebar.css({
+      borderRight: isMobile ? 'none' : '1px solid #e5e7eb',
+      borderBottom: isMobile ? '1px solid #e5e7eb' : 'none',
+      width: '100%',
+      height: menuActive ? `calc(100vh - ${topOffset}px)` : 'auto',
+      display: isMobile ? (menuActive ? 'block' : 'none') : 'block',
+      position: menuActive ? 'absolute' : 'relative',
+      top: menuActive ? `${topOffset}px` : '0',
+      left: '0',
+      right: '0',
+      bottom: menuActive ? '0' : 'auto',
+      zIndex: menuActive ? '20' : 'auto',
+      overflowY: 'auto',
+      backgroundColor: '#ffffff'
+    });
+
+    contentArea.css({
+      padding: isMobile ? '20px 16px' : '30px'
+    });
+
+    mobileViewTabs.css({ display: isMobile ? 'flex' : 'none' });
+
+    contentWrapper.css({
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      width: '100%',
+      minHeight: '0',
+      flex: '1',
+      overflow: 'hidden'
+    });
+
+    sidebar.css({
+      width: isMobile ? '100%' : '200px',
+      minHeight: isMobile ? 'auto' : '0',
+      flex: isMobile ? '0 0 auto' : '0 0 200px'
+    });
+
+    bodyWrapper.css({
+      flexDirection: isMobile ? 'column' : 'row',
+      width: '100%',
+      minHeight: '0',
+      flex: '1',
+      overflow: 'hidden'
+    });
+  }
+
+  window.addEventListener('resize', updateUI);
+  applyResponsiveLayout();
 
   // ==================== FUNCTIONS ====================
 
   function switchSection(sectionId) {
     currentSection = sectionId;
+    if (window.innerWidth <= MOBILE_BREAKPOINT) {
+      mobileViewMode = 'editor';
+      mobileSidebarOpen = false;
+    }
     updateUI();
   }
 
@@ -147,6 +365,77 @@ export default function createEditorUI(initConfig = {}) {
         fontWeight: isActive ? '600' : '400',
         borderLeft: isActive ? '3px solid #6366f1' : '3px solid transparent'
       });
+    });
+
+    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    mobileViewTabs.css({ display: isMobile ? 'flex' : 'none' });
+
+    editorTabBtn.css({
+      backgroundColor: mobileViewMode === 'editor' ? '#6366f1' : '#ffffff',
+      color: mobileViewMode === 'editor' ? '#ffffff' : '#374151',
+      borderColor: mobileViewMode === 'editor' ? '#6366f1' : '#d1d5db'
+    });
+    previewTabBtn.css({
+      backgroundColor: mobileViewMode === 'preview' ? '#6366f1' : '#ffffff',
+      color: mobileViewMode === 'preview' ? '#ffffff' : '#374151',
+      borderColor: mobileViewMode === 'preview' ? '#6366f1' : '#d1d5db'
+    });
+
+    const menuActive = isMobile && mobileViewMode === 'menu';
+    const topOffset = topBar.get().offsetHeight + mobileViewTabs.get().offsetHeight;
+    mobileMenuBtn.text(menuActive ? 'Hide menu' : 'Menu');
+    mobileMenuBtn.css({
+      display: isMobile ? 'inline-flex' : 'none',
+      backgroundColor: menuActive ? '#6366f1' : '#f3f4f6',
+      color: menuActive ? '#ffffff' : '#374151',
+      borderColor: menuActive ? '#6366f1' : '#d1d5db'
+    });
+
+    topBar.css({ padding: isMobile ? '10px 14px' : '16px 24px' });
+    contentArea.css({ padding: isMobile ? '20px 16px' : '30px' });
+
+    sidebar.css({
+      display: isMobile ? (menuActive ? 'block' : 'none') : 'block',
+      height: menuActive ? `calc(100vh - ${topOffset}px)` : 'auto',
+      position: menuActive ? 'absolute' : 'relative',
+      top: menuActive ? `${topOffset}px` : '0',
+      bottom: menuActive ? '0' : 'auto',
+      left: '0',
+      right: isMobile ? '0' : 'auto',
+      width: isMobile ? '100%' : '200px',
+      minHeight: isMobile ? 'auto' : '0',
+      flex: isMobile ? '0 0 auto' : '0 0 200px',
+      borderRight: isMobile ? 'none' : '1px solid #e5e7eb',
+      borderBottom: isMobile && menuActive ? '1px solid #e5e7eb' : 'none',
+      zIndex: menuActive ? '20' : 'auto',
+      overflowY: 'auto',
+      boxSizing: 'border-box'
+    });
+
+    bodyWrapper.css({
+      display: isMobile ? 'flex' : 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      width: '100%',
+      minHeight: '0',
+      flex: '1',
+      overflow: 'hidden'
+    });
+
+    contentWrapper.css({
+      display: menuActive ? 'none' : 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      width: '100%',
+      minHeight: '0',
+      flex: '1',
+      overflow: 'hidden'
+    });
+
+    centerPanel.css({ display: !isMobile || mobileViewMode === 'editor' ? 'flex' : 'none' });
+    previewPanel.css({
+      width: isMobile ? '100%' : '480px',
+      display: !isMobile || mobileViewMode === 'preview' ? 'flex' : 'none',
+      minHeight: '0',
+      flex: isMobile ? '1' : '0 0 480px'
     });
 
     // Clear and render content
@@ -201,7 +490,7 @@ export default function createEditorUI(initConfig = {}) {
               color: '#111827'
             }),
           el('p')
-            .text('Drag by ⋮ icon to reorder groups and links')
+            .text('Use the drag handle on the left to reorder groups and links.')
             .css({
               fontSize: '14px',
               color: '#6b7280',
@@ -256,18 +545,25 @@ export default function createEditorUI(initConfig = {}) {
 
       const dragHandle = el('div')
         .attr('draggable', 'true')
-        .text('⋮⋮')
+        .attr('title', 'Drag to reorder group')
+        .html(`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6 7H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M6 12H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M6 17H18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>`)
         .css({
           cursor: 'grab',
-          fontSize: '20px',
           color: '#9ca3af',
-          fontWeight: 'bold',
           userSelect: 'none',
-          padding: '4px 8px',
-          borderRadius: '4px',
+          padding: '8px',
+          borderRadius: '6px',
           transition: 'all 0.2s',
           flexShrink: 0,
-          marginTop: '2px'
+          marginTop: '2px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f3f4f6'
         })
         .on('mouseenter', function() {
           el(this).css({ backgroundColor: '#e5e7eb', color: '#6366f1' });
@@ -410,24 +706,32 @@ export default function createEditorUI(initConfig = {}) {
 
           const linkDragHandle = el('div')
             .attr('draggable', 'true')
-            .text('⋮')
+            .attr('title', 'Drag to reorder link')
+            .html(`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 7H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M8 12H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M8 17H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>`)
             .css({
               cursor: 'grab',
-              fontSize: '14px',
               color: '#9ca3af',
-              fontWeight: 'bold',
               userSelect: 'none',
-              padding: '2px 6px',
-              borderRadius: '3px',
+              width: '34px',
+              height: '34px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '8px',
               flexShrink: 0,
               marginTop: '2px',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              backgroundColor: '#f3f4f6'
             })
             .on('mouseenter', function() {
               el(this).css({ backgroundColor: '#d1d5db', color: '#6366f1' });
             })
             .on('mouseleave', function() {
-              el(this).css({ backgroundColor: 'transparent', color: '#9ca3af' });
+              el(this).css({ backgroundColor: '#f3f4f6', color: '#9ca3af' });
             })
             .on('dragstart', (e) => {
               draggedLinkId = `${group.id}-${linkIdx}`;
@@ -441,6 +745,43 @@ export default function createEditorUI(initConfig = {}) {
               linkCard.get().style.borderColor = '#d1d5db';
               draggedLinkId = null;
             });
+
+          const linkMoveButtons = el('div')
+            .css({ display: 'grid', gap: '6px', marginTop: '6px' });
+
+          const moveUpBtn = el('button')
+            .text('↑')
+            .attr('title', 'Move link up')
+            .css({
+              width: '34px', height: '34px', borderRadius: '8px', border: '1px solid #d1d5db',
+              backgroundColor: '#ffffff', color: '#374151', cursor: linkIdx > 0 ? 'pointer' : 'not-allowed',
+              opacity: linkIdx > 0 ? 1 : 0.4
+            })
+            .on('click', () => {
+              if (linkIdx > 0) {
+                const linkItem = config.groups[groupIdx].links.splice(linkIdx, 1)[0];
+                config.groups[groupIdx].links.splice(linkIdx - 1, 0, linkItem);
+                updateUI();
+              }
+            });
+
+          const moveDownBtn = el('button')
+            .text('↓')
+            .attr('title', 'Move link down')
+            .css({
+              width: '34px', height: '34px', borderRadius: '8px', border: '1px solid #d1d5db',
+              backgroundColor: '#ffffff', color: '#374151', cursor: linkIdx < group.links.length - 1 ? 'pointer' : 'not-allowed',
+              opacity: linkIdx < group.links.length - 1 ? 1 : 0.4
+            })
+            .on('click', () => {
+              if (linkIdx < group.links.length - 1) {
+                const linkItem = config.groups[groupIdx].links.splice(linkIdx, 1)[0];
+                config.groups[groupIdx].links.splice(linkIdx + 1, 0, linkItem);
+                updateUI();
+              }
+            });
+
+          const linkControlGroup = el('div').css({ display: 'flex', flexDirection: 'column', alignItems: 'center' }).child([linkDragHandle, linkMoveButtons.child([moveUpBtn, moveDownBtn])]);
 
           linkCard
             .on('dragover', (e) => {
@@ -544,7 +885,7 @@ export default function createEditorUI(initConfig = {}) {
               updateUI();
             });
 
-          linkCard.child([linkDragHandle, linkInfo, deleteBtn]);
+          linkCard.child([linkControlGroup, linkInfo, deleteBtn]);
           linksContainerDiv.child(linkCard);
         });
       } else {
@@ -601,9 +942,12 @@ export default function createEditorUI(initConfig = {}) {
         .css({
           fontSize: '24px',
           fontWeight: 'bold',
-          marginBottom: '30px',
+          marginBottom: '8px',
           color: '#111827'
         }),
+      el('p')
+        .text('Set the profile name, bio, avatar and optional footer image for your page.')
+        .css({ fontSize: '13px', color: '#6b7280', marginBottom: '24px', lineHeight: '1.5' }),
 
       buildField('Profile Name', config.name, (v) => {
         config.name = v;
@@ -976,10 +1320,17 @@ export default function createEditorUI(initConfig = {}) {
         }),
 
       el('p')
-        .text('Add your social media links to your header')
+        .text('Add your social media or external profile links with icon labels.')
         .css({
           fontSize: '14px',
           color: '#6b7280',
+          marginBottom: '8px'
+        }),
+      el('p')
+        .text('Click the icon box to choose an icon, then enter the URL.')
+        .css({
+          fontSize: '12px',
+          color: '#9ca3af',
           marginBottom: '20px'
         })
     ]);
@@ -1098,8 +1449,11 @@ export default function createEditorUI(initConfig = {}) {
         .text('🎬 Videos')
         .css({ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#111827' }),
       el('p')
-        .text('Embed YouTube or custom videos on your page')
-        .css({ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }),
+        .text('Embed YouTube videos and optionally set a cover image shown before playback.')
+        .css({ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }),
+      el('p')
+        .text('Use cover images for a nicer preview and click to play behavior.')
+        .css({ fontSize: '12px', color: '#9ca3af', marginBottom: '20px' }),
       el('button')
         .text('+ Add Video')
         .css({
@@ -1108,7 +1462,7 @@ export default function createEditorUI(initConfig = {}) {
           cursor: 'pointer', marginBottom: '20px'
         })
         .on('click', () => {
-          config.videos.push({ title: '', youtube_id: '', embed_url: '' });
+          config.videos.push({ title: '', youtube_id: '', embed_url: '', cover: '', inputMode: 'youtube' });
           updateUI();
         })
     ]);
@@ -1123,6 +1477,21 @@ export default function createEditorUI(initConfig = {}) {
       const titleInput = createInput('Video title (optional)', video.title || '');
       titleInput.on('input', (e) => { config.videos[idx].title = e.target.value; updatePreview(); });
 
+      const mode = video.inputMode || 'youtube';
+
+      const modeRow = el('div').css({ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' });
+      modeRow.child([
+        el('span').text('Input mode:').css({ fontSize: '13px', fontWeight: '600', color: '#374151', minWidth: '100px' }),
+        createToggleBtn('YouTube ID / Link', mode === 'youtube', () => {
+          config.videos[idx].inputMode = 'youtube';
+          updateUI();
+        }),
+        createToggleBtn('Embed URL', mode === 'embed', () => {
+          config.videos[idx].inputMode = 'embed';
+          updateUI();
+        })
+      ]);
+
       const ytInput = createInput('YouTube Video ID or paste link (e.g. youtube.com/watch?v=...)', video.youtube_id || '');
       ytInput.on('input', (e) => { 
         const extracted = extractYouTubeId(e.target.value);
@@ -1131,18 +1500,58 @@ export default function createEditorUI(initConfig = {}) {
         updatePreview();
       });
 
-      const embedInput = createInput('Or embed URL (overrides YouTube ID)', video.embed_url || '');
+      const embedInput = createInput('Embed URL (e.g. https://www.youtube.com/embed/VIDEO_ID)', video.embed_url || '');
       embedInput.on('input', (e) => { config.videos[idx].embed_url = e.target.value; updatePreview(); });
+
+      const coverInput = createInput('Cover Image URL (optional)', video.cover || '');
+      coverInput.on('input', (e) => { config.videos[idx].cover = e.target.value; updatePreview(); });
+
+      const coverFileInput = el('input').attr('type', 'file').attr('accept', 'image/*').css({ display: 'none' });
+      coverFileInput.on('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          config.videos[idx].cover = ev.target.result;
+          updateUI();
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const coverUploadBtn = el('button')
+        .text('📁 Upload Cover')
+        .css({
+          width: '100%', padding: '8px', backgroundColor: '#eef2ff',
+          border: '1px dashed #6366f1', borderRadius: '6px', cursor: 'pointer',
+          fontSize: '12px', color: '#6366f1', fontWeight: '500', marginBottom: '8px'
+        })
+        .on('click', () => coverFileInput.get().click());
+
+      const coverPreview = video.cover && video.cover !== ''
+        ? el('div').css({ marginBottom: '8px', textAlign: 'center' }).child(
+            el('img').attr('src', video.cover).attr('alt', video.title || 'Cover image').css({
+              width: '100%', borderRadius: '12px', objectFit: 'cover', maxHeight: '180px'
+            })
+          )
+        : null;
 
       const deleteBtn = createDeleteBtn(() => { config.videos.splice(idx, 1); updateUI(); });
 
-      card.child([
+      const cardChildren = [
         el('div').css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }).child([
           el('span').text(`Video ${idx + 1}`).css({ fontWeight: '600', fontSize: '14px', color: '#374151' }),
           deleteBtn
         ]),
-        titleInput, ytInput, embedInput
-      ]);
+        modeRow,
+        titleInput,
+        ...(mode === 'youtube' ? [ytInput] : []),
+        ...(mode === 'embed' ? [embedInput] : []),
+        coverInput,
+        coverUploadBtn,
+        coverFileInput
+      ];
+      if (coverPreview) cardChildren.splice(4, 0, coverPreview);
+      card.child(cardChildren);
       section.child(card);
     });
 
@@ -1162,8 +1571,11 @@ export default function createEditorUI(initConfig = {}) {
         .text('🖼️ Images')
         .css({ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#111827' }),
       el('p')
-        .text('Add custom images to your page with optional link')
-        .css({ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }),
+        .text('Add gallery-style images with optional links and styling.')
+        .css({ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }),
+      el('p')
+        .text('Upload or paste image URLs, then set titles, alt text, and border radius.')
+        .css({ fontSize: '12px', color: '#9ca3af', marginBottom: '20px' }),
       el('button')
         .text('+ Add Image')
         .css({
@@ -1172,9 +1584,21 @@ export default function createEditorUI(initConfig = {}) {
           cursor: 'pointer', marginBottom: '20px'
         })
         .on('click', () => {
-          config.images.push({ src: '', title: '', alt: '', url: '', borderRadius: '8px' });
+          config.images.push({ src: '', title: '', alt: '', url: '', borderRadius: '8px', inputMode: 'upload' });
+          updateUI();
+        }),
+      el('div').css({ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px' }).child([
+        el('span').text('Image columns:').css({ fontSize: '14px', color: '#374151', minWidth: '110px' }),
+        el('span').text('Choose layout for the images shown on your page.').css({ fontSize: '12px', color: '#9ca3af' }),
+        createToggleBtn('1 Column', config.imageColumns === 1, () => {
+          config.imageColumns = 1;
+          updateUI();
+        }),
+        createToggleBtn('2 Columns', config.imageColumns === 2, () => {
+          config.imageColumns = 2;
           updateUI();
         })
+      ])
     ]);
 
     config.images.forEach((image, idx) => {
@@ -1183,6 +1607,20 @@ export default function createEditorUI(initConfig = {}) {
           backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px',
           padding: '15px', marginBottom: '12px'
         });
+
+      const mode = image.inputMode || 'upload';
+      const modeRow = el('div').css({ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' });
+      modeRow.child([
+        el('span').text('Image source:').css({ fontSize: '13px', fontWeight: '600', color: '#374151', minWidth: '100px' }),
+        createToggleBtn('URL', mode === 'url', () => {
+          config.images[idx].inputMode = 'url';
+          updateUI();
+        }),
+        createToggleBtn('Upload', mode === 'upload', () => {
+          config.images[idx].inputMode = 'upload';
+          updateUI();
+        })
+      ]);
 
       const srcInput = createInput('Image URL (src)', image.src || '');
       srcInput.on('input', (e) => { config.images[idx].src = e.target.value; updatePreview(); });
@@ -1203,22 +1641,35 @@ export default function createEditorUI(initConfig = {}) {
       const uploadBtn = el('button')
         .text('📁 Upload Image')
         .css({
-          width: '100%', padding: '8px', backgroundColor: '#eef2ff',
-          border: '1px dashed #6366f1', borderRadius: '6px', cursor: 'pointer',
-          fontSize: '12px', color: '#6366f1', fontWeight: '500', marginBottom: '8px'
+          width: '100%', padding: '8px', backgroundColor: mode === 'upload' ? '#eef2ff' : '#f3f4f6',
+          border: '1px dashed #6366f1', borderRadius: '6px', cursor: mode === 'upload' ? 'pointer' : 'not-allowed',
+          fontSize: '12px', color: '#6366f1', fontWeight: '500', marginBottom: '8px', opacity: mode === 'upload' ? 1 : 0.6
         })
-        .on('click', () => fileInput.get().click());
+        .on('click', () => { if (mode === 'upload') fileInput.get().click(); });
 
-      // Image preview
-      const previewEl = (image.src && image.src !== '')
-        ? el('div').css({ marginBottom: '8px', textAlign: 'center' }).child(
-            el('div').css({
-              width: '100%', maxHeight: '120px', borderRadius: image.borderRadius || '8px',
-              backgroundImage: `url(${image.src})`, backgroundSize: 'cover',
-              backgroundPosition: 'center', border: '1px solid #d1d5db', minHeight: '80px'
-            })
-          )
-        : null;
+      // Image preview or placeholder
+      const previewEl = el('div').css({ marginBottom: '8px', textAlign: 'center' });
+      if (image.src && image.src !== '') {
+        previewEl.child(
+          el('div').css({
+            width: '100%', maxHeight: '120px', borderRadius: image.borderRadius || '8px',
+            backgroundImage: `url(${image.src})`, backgroundSize: 'cover',
+            backgroundPosition: 'center', border: '1px solid #d1d5db', minHeight: '80px'
+          })
+        );
+      } else {
+        previewEl.child(
+          el('div').css({
+            width: '100%', minHeight: '120px', borderRadius: image.borderRadius || '8px',
+            border: '1px dashed #d1d5db', backgroundColor: '#ffffff',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            color: '#9ca3af', gap: '8px', padding: '12px'
+          }).child([
+            el('i').attr('class', 'fas fa-image').css({ fontSize: '28px' }),
+            el('span').text('No image selected').css({ fontSize: '12px' })
+          ])
+        );
+      }
 
       const titleInput = createInput('Title (optional)', image.title || '');
       titleInput.on('input', (e) => { config.images[idx].title = e.target.value; updatePreview(); });
@@ -1250,10 +1701,13 @@ export default function createEditorUI(initConfig = {}) {
         el('div').css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }).child([
           el('span').text(`Image ${idx + 1}`).css({ fontWeight: '600', fontSize: '14px', color: '#374151' }),
           deleteBtn
-        ])
+        ]),
+        modeRow,
+        ...(mode === 'url' ? [srcInput] : []),
+        ...(mode === 'upload' ? [uploadBtn, fileInput] : []),
       ];
       if (previewEl) cardChildren.push(previewEl);
-      cardChildren.push(uploadBtn, fileInput, srcInput, titleInput, altInput, urlInput, radiusRow);
+      cardChildren.push(titleInput, altInput, urlInput, radiusRow);
 
       card.child(cardChildren);
       section.child(card);
@@ -2688,14 +3142,21 @@ export default function createEditorUI(initConfig = {}) {
   function updatePreview() {
     const previewDom = previewPanel.get();
     previewDom.innerHTML = '';
+    previewDom.style.position = 'relative';
+    previewDom.style.overflow = 'hidden';
+
+    const scrollWrapper = document.createElement('div');
+    scrollWrapper.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden;';
+
     const preview = createLinktreeUI({ ...config, isPreview: true });
     if (preview && preview.get) {
-      previewDom.appendChild(preview.get());
+      scrollWrapper.appendChild(preview.get());
     }
+    previewDom.appendChild(scrollWrapper);
   }
 
   // ==================== INIT ====================
-  container.child([sidebar, centerPanel, previewPanel]);
+  container.child([topBar, mobileViewTabs, bodyWrapper]);
   updateUI();
 
   return container;

@@ -18,6 +18,9 @@ function loadGoogleFonts(fontNames = []) {
 // Built-in themes
 const themes = {
   hydra: {
+    label: 'Hydra',
+    category: 'Nature',
+    description: 'Soft green and ivory tones with a calm, organic touch.',
     backgroundColor: '#5a7a6b',
     textColor: '#ffffff',
     bioColor: '#cbd5e1',
@@ -29,6 +32,9 @@ const themes = {
     fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
   },
   dark: {
+    label: 'Dark',
+    category: 'Modern',
+    description: 'Minimal dark mode style with strong contrast and depth.',
     backgroundColor: '#1a1a1a',
     textColor: '#ffffff',
     bioColor: '#b0b0b0',
@@ -40,6 +46,9 @@ const themes = {
     fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
   },
   neon: {
+    label: 'Neon',
+    category: 'Vibrant',
+    description: 'Bold neon accents and a dramatic cyberpunk palette.',
     backgroundColor: '#0a0e27',
     textColor: '#00ff88',
     bioColor: '#00cc66',
@@ -51,6 +60,9 @@ const themes = {
     fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
   },
   ocean: {
+    label: 'Ocean',
+    category: 'Nature',
+    description: 'Deep blue waters with soft coral highlights.',
     backgroundColor: '#0f3460',
     textColor: '#ffffff',
     bioColor: '#a8dadc',
@@ -61,7 +73,97 @@ const themes = {
     accentColor: '#e63946',
     fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
   },
+  pastel: {
+    label: 'Pastel',
+    category: 'Soft',
+    description: 'Gentle pastel tones with creamy backgrounds and muted highlights.',
+    backgroundColor: '#f8f0ff',
+    textColor: '#302b4b',
+    bioColor: '#6b7280',
+    buttonBg: '#e9d5ff',
+    buttonText: '#3f3c74',
+    buttonHoverBg: '#d8b4fe',
+    buttonHoverText: '#2d2a4c',
+    accentColor: '#fd7f92',
+    fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+  },
+  sunset: {
+    label: 'Sunset',
+    category: 'Warm',
+    description: 'Warm sunset hues with glowing orange and pink accents.',
+    backgroundColor: '#fbbf77',
+    backgroundGradient: 'linear-gradient(135deg, #fbbf77 0%, #f97316 100%)',
+    textColor: '#1f2937',
+    bioColor: '#4b5563',
+    buttonBg: '#ffffff',
+    buttonText: '#b45309',
+    buttonHoverBg: '#fde68a',
+    buttonHoverText: '#92400e',
+    accentColor: '#dc2626',
+    fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+  },
+  retro: {
+    label: 'Retro',
+    category: 'Vibrant',
+    description: 'Bold retro colors with bright highlights and playful contrast.',
+    backgroundColor: '#1f2937',
+    backgroundGradient: 'linear-gradient(135deg, #1f2937 0%, #3b82f6 100%)',
+    textColor: '#f8fafc',
+    bioColor: '#cbd5e1',
+    buttonBg: '#f97316',
+    buttonText: '#ffffff',
+    buttonHoverBg: '#facc15',
+    buttonHoverText: '#111827',
+    accentColor: '#22c55e',
+    fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+  },
+  forest: {
+    label: 'Forest',
+    category: 'Nature',
+    description: 'Rich forest greens with earthy accents for a grounded look.',
+    backgroundColor: '#162b21',
+    backgroundGradient: 'linear-gradient(135deg, #162b21 0%, #3f704d 100%)',
+    textColor: '#e9f5ee',
+    bioColor: '#b8d8c2',
+    buttonBg: '#4f826b',
+    buttonText: '#ffffff',
+    buttonHoverBg: '#6aa68f',
+    buttonHoverText: '#0f172a',
+    accentColor: '#a3e635',
+    fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+  },
+  minimal: {
+    label: 'Minimal',
+    category: 'Modern',
+    description: 'Clean monochrome style with crisp spacing and subtle accents.',
+    backgroundColor: '#f8fafc',
+    textColor: '#111827',
+    bioColor: '#4b5563',
+    buttonBg: '#ffffff',
+    buttonText: '#111827',
+    buttonHoverBg: '#e2e8f0',
+    buttonHoverText: '#111827',
+    accentColor: '#2563eb',
+    fontFamily: '"Helvetica Neue", Arial, sans-serif'
+  },
+  glass: {
+    label: 'Glass',
+    category: 'Soft',
+    description: 'Frosted glass effect with cool tones and translucent UI.',
+    backgroundColor: '#f3f4f6',
+    textColor: '#111827',
+    bioColor: '#6b7280',
+    buttonBg: 'rgba(255,255,255,0.75)',
+    buttonText: '#111827',
+    buttonHoverBg: 'rgba(255,255,255,0.9)',
+    buttonHoverText: '#111827',
+    accentColor: '#0ea5e9',
+    fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
+  },
   gradient: {
+    label: 'Gradient',
+    category: 'Modern',
+    description: 'Soft gradient hero background with luminous accents.',
     backgroundColor: '#667eea',
     backgroundGradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     textColor: '#ffffff',
@@ -86,10 +188,12 @@ function createLinktreeUI(config = {}) {
     groups = [],  // Array of link groups
     videos = [],  // Array of videos
     images = [],  // Array of custom images
+    imageGroups = [], // Array of image groups
     imageColumns = 1,
     donations = [], // Array of donation buttons
     socialLinks = [],
     bottomImage = null,
+    sectionOrder = [],
     themeName = 'hydra',
     theme = null,
     googleFonts = [],  // NEW: Array of Google Font names to load
@@ -100,7 +204,8 @@ function createLinktreeUI(config = {}) {
     bgMode = '',         // Background mode: 'color', 'gradient', 'image' or '' (auto from theme)
     bgColor = '',        // Custom background color
     bgGradient = '',     // Custom background gradient
-    bgImage = ''         // Custom background image URL
+    bgImage = '',        // Custom background image URL
+    bgSize = 'cover'     // Custom background size: cover / contain / auto
   } = config;
 
   // Load Google Fonts if provided
@@ -114,6 +219,7 @@ function createLinktreeUI(config = {}) {
 
   // Create main container CSS
   const containerCSS = {
+    width: '100%',
     minHeight: '100%',
     height: 'auto',
     maxHeight: 'auto',
@@ -123,9 +229,10 @@ function createLinktreeUI(config = {}) {
     justifyContent: 'center',
     padding: isPreview ? '30px 24px' : '20px',
     fontFamily: fontFamily || activeTheme.fontFamily,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: isPreview ? 'scroll' : 'fixed',
+    backgroundSize: bgSize || 'cover',
+    backgroundPosition: 'center center',
+    backgroundRepeat: 'no-repeat',
+    backgroundAttachment: 'fixed',
     boxSizing: 'border-box'
   };
 
@@ -387,9 +494,136 @@ function createLinktreeUI(config = {}) {
     content.child(socialContainerEl.get());
   }
 
-  content.child(linksContainer.child(allLinkElements).get());
+  const sectionBlocks = {};
 
-  // Add videos if provided
+  if ((links && links.length > 0) || (groups && groups.length > 0)) {
+    if (links && links.length > 0) {
+      const linksContainer = el('div')
+        .css({
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          marginTop: '30px',
+          width: '100%',
+          boxSizing: 'border-box'
+        });
+
+      links.forEach(link => {
+        linksContainer.child(createLinkButton(link));
+      });
+
+      sectionBlocks.links = linksContainer.get();
+    }
+
+    if (groups && groups.length > 0) {
+      groups.forEach(group => {
+        const groupContainer = el('div')
+          .css({
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            marginTop: '30px',
+            width: '100%',
+            boxSizing: 'border-box'
+          });
+
+        if (group.name && group.name.trim() !== '') {
+          groupContainer.child(
+            el('div')
+              .text(group.name)
+              .css({
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: activeTheme.textColor,
+                marginBottom: '8px',
+                opacity: '0.8',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              })
+          );
+        }
+
+        if (group.links && group.links.length > 0) {
+          group.links.forEach(link => {
+            groupContainer.child(createLinkButton(link));
+          });
+        }
+
+        sectionBlocks[group.id] = groupContainer.get();
+      });
+    }
+
+    if (imageGroups && imageGroups.length > 0) {
+      imageGroups.forEach(group => {
+        if (!group.images || group.images.length === 0) return;
+
+        const groupContainer = el('div')
+          .css({
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            marginTop: '30px',
+            width: '100%',
+            boxSizing: 'border-box'
+          });
+
+        if (group.name && group.name.trim() !== '') {
+          groupContainer.child(
+            el('div')
+              .text(group.name)
+              .css({
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: activeTheme.textColor,
+                marginBottom: '8px',
+                opacity: '0.8',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              })
+          );
+        }
+
+        const groupColumns = group.imageColumns || imageColumns;
+        const imagesContainer = el('div')
+          .css({
+            display: 'grid',
+            gridTemplateColumns: groupColumns === 2 ? '1fr 1fr' : '1fr',
+            gap: '15px'
+          });
+
+        group.images.forEach(image => {
+          const imageWrapper = el('div')
+            .css({ display: 'flex', justifyContent: 'center', alignItems: 'center' });
+
+          if (image.src) {
+            if (image.url) {
+              imageWrapper.html(`
+                <a href="${image.url}" target="_blank" rel="noopener noreferrer" style="display: flex; width: 100%; justify-content: center;">
+                  <img src="${image.src}" alt="${image.alt || 'Image'}" style="width: ${image.width || '100%'}; height: ${image.height || 'auto'}; border-radius: ${image.borderRadius || '8px'}; object-fit: ${image.objectFit || 'cover'}; border: ${image.border || 'none'}; box-shadow: ${image.boxShadow || 'none'}; transition: all 0.3s ease; cursor: pointer;" />
+                </a>
+              `);
+            } else {
+              imageWrapper.html(`
+                <img src="${image.src}" alt="${image.alt || 'Image'}" style="width: ${image.width || '100%'}; height: ${image.height || 'auto'}; border-radius: ${image.borderRadius || '8px'}; object-fit: ${image.objectFit || 'cover'}; border: ${image.border || 'none'}; box-shadow: ${image.boxShadow || 'none'}; transition: all 0.3s ease; cursor: default;" />
+              `);
+            }
+          } else {
+            imageWrapper.html(`
+              <div style="width: 100%; min-height: 120px; border-radius: ${image.borderRadius || '8px'}; border: 1px dashed #d1d5db; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #9ca3af; padding: 16px; box-sizing: border-box;">
+                <i class="fas fa-image" style="font-size: 28px; margin-bottom: 8px;"></i>
+                <span style="font-size: 12px;">No image selected</span>
+              </div>
+            `);
+          }
+          imagesContainer.child(imageWrapper);
+        });
+
+        groupContainer.child(imagesContainer.get());
+        sectionBlocks[group.id] = groupContainer.get();
+      });
+    }
+  }
+
   if (videos && videos.length > 0) {
     const videosContainer = el('div')
       .css({
@@ -489,7 +723,7 @@ function createLinktreeUI(config = {}) {
       videosContainer.child(videoWrapper);
     });
 
-    content.child(videosContainer.get());
+    sectionBlocks.videos = videosContainer.get();
   }
 
   // Add custom images if provided
@@ -585,7 +819,7 @@ function createLinktreeUI(config = {}) {
       imagesContainer.child(imageWrapper);
     });
 
-    content.child(imagesContainer.get());
+    sectionBlocks.images = imagesContainer.get();
   }
 
   // Add donation buttons if provided
@@ -642,7 +876,7 @@ function createLinktreeUI(config = {}) {
       donationsContainer.child(donationBtn);
     });
 
-    content.child(donationsContainer.get());
+    sectionBlocks.donations = donationsContainer.get();
   }
 
   // Add bottom image if provided
@@ -656,8 +890,16 @@ function createLinktreeUI(config = {}) {
       })
       .html(`<img src="${bottomImage}" alt="showcase" style="border-radius: 12px; object-fit: cover; max-width: 100%; max-height: 200px;" />`);
 
-    content.child(bottomImageWrapper.get());
+    sectionBlocks.bottomImage = bottomImageWrapper.get();
   }
+
+  const defaultOrder = ['links', ...(groups ? groups.map(group => group.id) : []), ...(imageGroups ? imageGroups.map(group => group.id) : []), 'images', 'videos', 'donations', 'bottomImage'];
+  const effectiveSectionOrder = Array.isArray(sectionOrder) && sectionOrder.length ? [...new Set([...sectionOrder, ...defaultOrder])] : defaultOrder;
+  effectiveSectionOrder.forEach((key) => {
+    if (sectionBlocks[key]) {
+      content.child(sectionBlocks[key]);
+    }
+  });
 
   container.child(content);
 

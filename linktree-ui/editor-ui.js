@@ -32,6 +32,7 @@ export default function createEditorUI(initConfig = {}) {
     links: [],
     videos: [],
     images: [],
+    imageGroups: [],
     imageColumns: 1,
     donations: [],
     socialLinks: [
@@ -42,6 +43,7 @@ export default function createEditorUI(initConfig = {}) {
       { icon: 'fab fa-pinterest', url: 'https://pinterest.com' }
     ],
     bottomImage: '',
+    sectionOrder: [],
     bgMode: '',
     bgColor: '',
     bgGradient: '',
@@ -132,7 +134,9 @@ export default function createEditorUI(initConfig = {}) {
     { id: 'videos', label: '🎬 Videos', icon: '🎬' },
     { id: 'images', label: '🖼️ Images', icon: '🖼️' },
     { id: 'donations', label: '💰 Donations', icon: '💰' },
-    { id: 'appearance', label: '🎨 Appearance', icon: '🎨' },
+    { id: 'layout', label: '🧩 Layout', icon: '🧩' },
+    { id: 'theme', label: '🎨 Theme', icon: '🎨' },
+    { id: 'appearance', label: '🖌️ Appearance', icon: '🖌️' },
     { id: 'social', label: '📱 Social', icon: '📱' },
     { id: 'settings', label: '⚙️ Settings', icon: '⚙️' }
   ];
@@ -197,6 +201,10 @@ export default function createEditorUI(initConfig = {}) {
       flex: '0 0 480px',
       boxSizing: 'border-box'
     });
+
+  let previewIframe = null;
+  let previewIframeReady = false;
+  let pendingPreviewRoot = null;
 
   // ==================== CONTENT WRAPPER (Editor + Preview) ====================
   const contentWrapper = el('div')
@@ -452,6 +460,10 @@ export default function createEditorUI(initConfig = {}) {
       content = buildImagesSection();
     } else if (currentSection === 'donations') {
       content = buildDonationsSection();
+    } else if (currentSection === 'layout') {
+      content = buildLayoutSection();
+    } else if (currentSection === 'theme') {
+      content = buildThemeSection();
     } else if (currentSection === 'appearance') {
       content = buildAppearanceSection();
     } else if (currentSection === 'social') {
@@ -1156,14 +1168,8 @@ export default function createEditorUI(initConfig = {}) {
 
     section.child([
       el('h2')
-        .text('🎨 Theme & Appearance')
+        .text('🖌️ Appearance')
         .css({ fontSize: '24px', fontWeight: 'bold', marginBottom: '30px', color: '#111827' }),
-
-      // ── GROUP: Theme ──
-      buildGroupCard('🎨 Theme', [
-        el('label').text('Select Theme').css({ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '10px', color: '#374151' }),
-        createThemeSelect()
-      ]),
 
       // ── GROUP: Background ──
       (() => {
@@ -1211,10 +1217,103 @@ export default function createEditorUI(initConfig = {}) {
           );
         } else if (effectiveMode === 'image') {
           children.push(
-            buildField('Background Image URL', config.bgImage || '', (v) => {
-              config.bgImage = v;
-              updatePreview();
-            })
+            (() => {
+              const wrapper = el('div').css({ marginBottom: '10px' });
+              let mode = 'url';
+              if (config.bgImage && config.bgImage.startsWith('data:')) mode = 'upload';
+
+              const radioRow = el('div').css({ display: 'flex', gap: '14px', marginBottom: '10px', alignItems: 'center' });
+              const urlRadio = el('input').attr('type', 'radio').attr('name', 'bgImageMode').attr('id', 'bgImageUrlRadio').attr('value', 'url');
+              const uploadRadio = el('input').attr('type', 'radio').attr('name', 'bgImageMode').attr('id', 'bgImageUploadRadio').attr('value', 'upload');
+              if (mode === 'url') urlRadio.get().checked = true;
+              if (mode === 'upload') uploadRadio.get().checked = true;
+              const urlLabel = el('label').attr('for', 'bgImageUrlRadio').text('URL').css({ cursor: 'pointer', fontSize: '13px' });
+              const uploadLabel = el('label').attr('for', 'bgImageUploadRadio').text('Upload').css({ cursor: 'pointer', fontSize: '13px' });
+              radioRow.child([urlRadio, urlLabel, uploadRadio, uploadLabel]);
+              wrapper.child(radioRow);
+
+              const urlInput = el('input')
+                .attr('type', 'text')
+                .attr('placeholder', 'Background Image URL')
+                .css({
+                  width: '100%', padding: '10px', border: '1px solid #d1d5db',
+                  borderRadius: '6px', fontSize: '13px', marginBottom: '8px', boxSizing: 'border-box',
+                  backgroundColor: mode === 'url' ? '#fff' : '#f3f4f6', color: '#374151'
+                });
+              urlInput.get().value = (mode === 'url' && config.bgImage && !config.bgImage.startsWith('data:')) ? config.bgImage : '';
+              urlInput.get().disabled = mode !== 'url';
+              urlInput.on('input', (e) => {
+                if (mode === 'url') {
+                  config.bgImage = e.target.value;
+                  updatePreview();
+                }
+              });
+              wrapper.child(urlInput);
+
+              const fileInput = el('input').attr('type', 'file').attr('accept', 'image/*').css({ display: 'none' });
+              const uploadBtn = el('button')
+                .text('📁 Upload Image')
+                .css({
+                  width: '100%', padding: '10px', backgroundColor: mode === 'upload' ? '#eef2ff' : '#f3f4f6',
+                  border: '1px dashed #6366f1', borderRadius: '6px', cursor: mode === 'upload' ? 'pointer' : 'not-allowed',
+                  fontSize: '13px', color: '#6366f1', fontWeight: '500', opacity: mode === 'upload' ? 1 : 0.6
+                })
+                .on('click', () => {
+                  if (mode === 'upload') fileInput.get().click();
+                });
+
+              fileInput.on('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                  config.bgImage = ev.target.result;
+                  updatePreview();
+                };
+                reader.readAsDataURL(file);
+              });
+              wrapper.child([fileInput, uploadBtn]);
+
+              const sizeLabel = el('label')
+                .text('Background Size')
+                .css({ display: 'block', fontSize: '14px', fontWeight: '600', margin: '14px 0 8px', color: '#374151' });
+
+              const sizeSelect = el('select')
+                .css({
+                  width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box'
+                });
+              ['cover', 'contain', 'auto'].forEach((optionValue) => {
+                const option = el('option').attr('value', optionValue).text(optionValue);
+                if ((config.bgSize || 'cover') === optionValue) option.get().selected = true;
+                sizeSelect.child(option);
+              });
+              sizeSelect.on('change', (e) => {
+                config.bgSize = e.target.value;
+                updatePreview();
+              });
+              wrapper.child([sizeLabel, sizeSelect]);
+
+              urlRadio.on('change', () => {
+                mode = 'url';
+                urlInput.get().disabled = false;
+                urlInput.css({ backgroundColor: '#fff' });
+                uploadBtn.css({ cursor: 'not-allowed', backgroundColor: '#f3f4f6', opacity: 0.6 });
+                if (urlInput.get().value) {
+                  config.bgImage = urlInput.get().value;
+                  updatePreview();
+                }
+              });
+
+              uploadRadio.on('change', () => {
+                mode = 'upload';
+                urlInput.get().disabled = true;
+                urlInput.css({ backgroundColor: '#f3f4f6' });
+                uploadBtn.css({ cursor: 'pointer', backgroundColor: '#eef2ff', opacity: 1 });
+                if (config.bgImage && config.bgImage.startsWith('data:')) updatePreview();
+              });
+
+              return wrapper;
+            })()
           );
         }
 
@@ -1305,6 +1404,186 @@ export default function createEditorUI(initConfig = {}) {
     return section;
   }
 
+  function buildThemeSection() {
+    const section = el('div');
+
+    section.child([
+      el('h2')
+        .text('🎨 Theme')
+        .css({ fontSize: '24px', fontWeight: 'bold', marginBottom: '30px', color: '#111827' }),
+
+      buildGroupCard('🎨 Theme Selection', [
+        el('p').text('Search themes, filter by category, and click a theme card to apply it.')
+          .css({ fontSize: '14px', color: '#6b7280', marginBottom: '18px' }),
+        createThemePicker()
+      ])
+    ]);
+
+    return section;
+  }
+
+  function buildLayoutSection() {
+    const section = el('div');
+    const reorderList = el('div').css({ display: 'flex', flexDirection: 'column', gap: '12px' });
+
+    function getSectionItems() {
+      const groupIds = config.groups.filter(group => Array.isArray(group.links) && group.links.length > 0).map(group => group.id);
+      const imageGroupIds = config.imageGroups.filter(group => Array.isArray(group.images) && group.images.length > 0).map(group => group.id);
+      const order = Array.isArray(config.sectionOrder) ? config.sectionOrder : [];
+      const allowed = ['links', ...groupIds, ...imageGroupIds, 'images', 'videos', 'donations', 'bottomImage'];
+      const normalized = [...new Set([...order, ...allowed])].filter(item => allowed.includes(item));
+      const visible = normalized.filter(item => {
+        if (item === 'links') return Array.isArray(config.links) && config.links.length > 0;
+        if (item === 'images') return Array.isArray(config.images) && config.images.length > 0;
+        if (item === 'videos') return Array.isArray(config.videos) && config.videos.length > 0;
+        if (item === 'donations') return Array.isArray(config.donations) && config.donations.length > 0;
+        if (item === 'bottomImage') return !!config.bottomImage;
+        return groupIds.includes(item) || imageGroupIds.includes(item);
+      });
+      config.sectionOrder = visible;
+      return visible;
+    }
+
+    function getSectionLabel(key) {
+      if (key === 'links') return 'Links';
+      if (key === 'images') return 'Group: Images';
+      if (key === 'videos') return 'Videos';
+      if (key === 'donations') return 'Donations';
+      if (key === 'bottomImage') return 'Bottom Image';
+      const imageGroup = config.imageGroups.find(group => group.id === key);
+      if (imageGroup) return imageGroup.name && imageGroup.name.trim() !== '' ? `Image Group: ${imageGroup.name}` : 'Image Group';
+      const group = config.groups.find(group => group.id === key);
+      return group ? `Group: ${group.name || group.id}` : key;
+    }
+
+    let draggedSectionKey = null;
+
+    function renderOrder() {
+      reorderList.empty();
+      const order = getSectionItems();
+
+      order.forEach((key, index) => {
+        const itemLabel = getSectionLabel(key);
+
+        const item = el('div')
+          .attr('draggable', 'true')
+          .css({
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            border: '1px solid #e5e7eb',
+            backgroundColor: '#ffffff',
+            boxShadow: '0 1px 2px rgba(15, 23, 42, 0.05)',
+            cursor: 'grab'
+          });
+
+        item.on('dragstart', (e) => {
+          draggedSectionKey = key;
+          e.dataTransfer.effectAllowed = 'move';
+          item.css({ opacity: '0.5' });
+        });
+
+        item.on('dragend', () => {
+          draggedSectionKey = null;
+          item.css({ opacity: '1' });
+        });
+
+        item.on('dragover', (e) => {
+          e.preventDefault();
+        });
+
+        item.on('dragenter', () => {
+          if (draggedSectionKey && draggedSectionKey !== key) {
+            item.css({ borderColor: '#6366f1', backgroundColor: '#eef2ff' });
+          }
+        });
+
+        item.on('dragleave', () => {
+          item.css({ borderColor: '#e5e7eb', backgroundColor: '#ffffff' });
+        });
+
+        item.on('drop', (e) => {
+          e.preventDefault();
+          if (draggedSectionKey && draggedSectionKey !== key) {
+            const newOrder = [...order];
+            const fromIndex = newOrder.indexOf(draggedSectionKey);
+            const toIndex = newOrder.indexOf(key);
+            if (fromIndex !== -1 && toIndex !== -1) {
+              newOrder.splice(fromIndex, 1);
+              newOrder.splice(toIndex, 0, draggedSectionKey);
+              config.sectionOrder = newOrder;
+              renderOrder();
+              updatePreview();
+            }
+          }
+        });
+
+        const label = el('span').text(itemLabel).css({ fontSize: '14px', color: '#111827', fontWeight: '600' });
+        const actions = el('div').css({ display: 'flex', gap: '8px' });
+
+        const upBtn = el('button')
+          .text('↑')
+          .css({
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            backgroundColor: '#ffffff',
+            cursor: index === 0 ? 'not-allowed' : 'pointer',
+            color: index === 0 ? '#9ca3af' : '#374151'
+          })
+          .on('click', () => {
+            if (index === 0) return;
+            const newOrder = [...order];
+            [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+            config.sectionOrder = newOrder;
+            renderOrder();
+            updatePreview();
+          });
+
+        const downBtn = el('button')
+          .text('↓')
+          .css({
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid #d1d5db',
+            backgroundColor: '#ffffff',
+            cursor: index === order.length - 1 ? 'not-allowed' : 'pointer',
+            color: index === order.length - 1 ? '#9ca3af' : '#374151'
+          })
+          .on('click', () => {
+            if (index === order.length - 1) return;
+            const newOrder = [...order];
+            [newOrder[index + 1], newOrder[index]] = [newOrder[index], newOrder[index + 1]];
+            config.sectionOrder = newOrder;
+            renderOrder();
+            updatePreview();
+          });
+
+        actions.child([upBtn, downBtn]);
+        item.child([label, actions]);
+        reorderList.child(item);
+      });
+
+      reorderList.get();
+    }
+
+    section.child([
+      el('h2')
+        .text('🧩 Layout')
+        .css({ fontSize: '24px', fontWeight: 'bold', marginBottom: '30px', color: '#111827' }),
+      buildGroupCard('Section Order', [
+        el('p').text('Reorder the preview sections to customize their position on the page.')
+          .css({ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }),
+        reorderList
+      ])
+    ]);
+
+    renderOrder();
+    return section;
+  }
+
   // ==================== SOCIAL SECTION ====================
   function buildSocialSection() {
     const section = el('div');
@@ -1335,8 +1614,10 @@ export default function createEditorUI(initConfig = {}) {
         })
     ]);
 
+    let draggedSocialIdx = null;
     config.socialLinks.forEach((social, idx) => {
       const row = el('div')
+        .attr('draggable', 'true')
         .css({
           backgroundColor: '#f9fafb',
           border: '1px solid #e5e7eb',
@@ -1344,24 +1625,91 @@ export default function createEditorUI(initConfig = {}) {
           padding: '15px',
           marginBottom: '12px',
           display: 'flex',
-          gap: '10px',
-          alignItems: 'center'
+          flexDirection: 'column',
+          width: '100%',
+          gap: '12px',
+          cursor: 'grab',
+          boxSizing: 'border-box'
         });
 
+      row.on('dragstart', (e) => {
+        draggedSocialIdx = idx;
+        row.css({ opacity: '0.5' });
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      row.on('dragend', () => {
+        draggedSocialIdx = null;
+        row.css({ opacity: '1' });
+      });
+
+      row.on('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      row.on('dragenter', () => {
+        if (draggedSocialIdx !== null && draggedSocialIdx !== idx) {
+          row.css({ borderColor: '#6366f1', backgroundColor: '#eef2ff' });
+        }
+      });
+
+      row.on('dragleave', () => {
+        row.css({ borderColor: '#e5e7eb', backgroundColor: '#f9fafb' });
+      });
+
+      row.on('drop', (e) => {
+        e.preventDefault();
+        if (draggedSocialIdx !== null && draggedSocialIdx !== idx) {
+          const newLinks = [...config.socialLinks];
+          const moved = newLinks.splice(draggedSocialIdx, 1)[0];
+          newLinks.splice(idx, 0, moved);
+          config.socialLinks = newLinks;
+          updateUI();
+        }
+      });
+
+      const dragHandle = el('div')
+        .text('⋮⋮')
+        .css({
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '8px',
+          border: '1px solid #d1d5db',
+          color: '#6b7280',
+          cursor: 'grab',
+          userSelect: 'none'
+        });
+
+      const isMobileSocial = window.innerWidth <= 480;
       const iconField = buildIconPickerField('', social.icon || '', (v) => {
         config.socialLinks[idx].icon = v;
         updatePreview();
-      });
+      }).css(Object.assign({
+        flex: isMobileSocial ? '0 0 auto' : '1 1 160px',
+        minWidth: '120px',
+        maxWidth: isMobileSocial ? '100%' : '220px',
+        minHeight: '42px',
+        boxSizing: 'border-box',
+        width: isMobileSocial ? '100%' : 'auto'
+      }, {}));
 
       const urlInput = el('input')
         .attr('type', 'text')
         .attr('placeholder', 'URL')
         .css({
-          flex: '2',
+          flex: isMobileSocial ? '0 1 auto' : '1 1 260px',
+          minWidth: isMobileSocial ? '0' : '180px',
+          width: '100%',
           padding: '8px',
           border: '1px solid #d1d5db',
           borderRadius: '4px',
-          fontSize: '13px'
+          fontSize: '13px',
+          height: '42px',
+          lineHeight: '20px',
+          boxSizing: 'border-box'
         });
       urlInput.get().value = social.url;
       urlInput.on('input', (e) => {
@@ -1369,15 +1717,61 @@ export default function createEditorUI(initConfig = {}) {
         updatePreview();
       });
 
+      const actions = el('div').css({
+        display: 'flex',
+        gap: '6px',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        flex: isMobileSocial ? '0 1 100%' : '0 0 auto',
+        minWidth: '120px',
+        justifyContent: isMobileSocial ? 'flex-start' : 'flex-end'
+      });
+      const upBtn = el('button')
+        .text('↑')
+        .css({
+          width: '36px',
+          height: '36px',
+          borderRadius: '8px',
+          border: '1px solid #d1d5db',
+          backgroundColor: '#ffffff',
+          cursor: idx === 0 ? 'not-allowed' : 'pointer',
+          color: idx === 0 ? '#9ca3af' : '#374151'
+        })
+        .on('click', () => {
+          if (idx === 0) return;
+          const list = [...config.socialLinks];
+          [list[idx - 1], list[idx]] = [list[idx], list[idx - 1]];
+          config.socialLinks = list;
+          updateUI();
+        });
+      const downBtn = el('button')
+        .text('↓')
+        .css({
+          width: '36px',
+          height: '36px',
+          borderRadius: '8px',
+          border: '1px solid #d1d5db',
+          backgroundColor: '#ffffff',
+          cursor: idx === config.socialLinks.length - 1 ? 'not-allowed' : 'pointer',
+          color: idx === config.socialLinks.length - 1 ? '#9ca3af' : '#374151'
+        })
+        .on('click', () => {
+          if (idx === config.socialLinks.length - 1) return;
+          const list = [...config.socialLinks];
+          [list[idx + 1], list[idx]] = [list[idx], list[idx + 1]];
+          config.socialLinks = list;
+          updateUI();
+        });
+
       const deleteBtn = el('button')
         .text('✕')
         .css({
-          width: '40px',
-          height: '40px',
+          width: '36px',
+          height: '36px',
+          borderRadius: '8px',
+          border: '1px solid #fee2e2',
           backgroundColor: '#fee2e2',
           color: '#dc2626',
-          border: 'none',
-          borderRadius: '4px',
           cursor: 'pointer',
           fontWeight: 'bold'
         })
@@ -1386,7 +1780,30 @@ export default function createEditorUI(initConfig = {}) {
           updateUI();
         });
 
-      row.child([iconField, urlInput, deleteBtn]);
+      actions.child([upBtn, downBtn, deleteBtn]);
+
+      const topRow = el('div').css({
+        display: 'flex',
+        width: '100%',
+        gap: '10px',
+        alignItems: isMobileSocial ? 'stretch' : 'center',
+        flexWrap: 'wrap',
+        flexDirection: isMobileSocial ? 'column' : 'row'
+      });
+      const bottomRow = el('div').css({
+        display: 'flex',
+        width: '100%',
+        gap: '10px',
+        alignItems: isMobileSocial ? 'stretch' : 'center',
+        justifyContent: isMobileSocial ? 'flex-start' : 'space-between',
+        flexWrap: 'wrap',
+        flexDirection: isMobileSocial ? 'column' : 'row',
+        boxSizing: 'border-box'
+      });
+
+      topRow.child([dragHandle, urlInput]);
+      bottomRow.child([iconField, actions]);
+      row.child([topRow, bottomRow]);
       section.child(row);
     });
 
@@ -1577,143 +1994,305 @@ export default function createEditorUI(initConfig = {}) {
         .text('Upload or paste image URLs, then set titles, alt text, and border radius.')
         .css({ fontSize: '12px', color: '#9ca3af', marginBottom: '20px' }),
       el('button')
-        .text('+ Add Image')
+        .text('+ Add Image Group')
         .css({
-          width: '100%', padding: '12px', backgroundColor: '#6366f1', color: '#fff',
+          width: '100%', padding: '12px', backgroundColor: '#10b981', color: '#fff',
           border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600',
           cursor: 'pointer', marginBottom: '20px'
         })
         .on('click', () => {
-          config.images.push({ src: '', title: '', alt: '', url: '', borderRadius: '8px', inputMode: 'upload' });
+          config.imageGroups.push({ id: 'image-group-' + Date.now(), name: '', images: [], imageColumns: 1 });
           updateUI();
         }),
-      el('div').css({ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px' }).child([
-        el('span').text('Image columns:').css({ fontSize: '14px', color: '#374151', minWidth: '110px' }),
-        el('span').text('Choose layout for the images shown on your page.').css({ fontSize: '12px', color: '#9ca3af' }),
-        createToggleBtn('1 Column', config.imageColumns === 1, () => {
-          config.imageColumns = 1;
-          updateUI();
-        }),
-        createToggleBtn('2 Columns', config.imageColumns === 2, () => {
-          config.imageColumns = 2;
-          updateUI();
-        })
-      ])
+      el('p')
+        .text('Create image groups and control layout separately for each group.')
+        .css({ fontSize: '13px', color: '#6b7280', marginBottom: '20px', lineHeight: '1.5' })
     ]);
 
-    config.images.forEach((image, idx) => {
-      const card = el('div')
-        .css({
-          backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px',
-          padding: '15px', marginBottom: '12px'
+    if (config.imageGroups && config.imageGroups.length > 0) {
+      config.imageGroups.forEach((group, groupIdx) => {
+        const groupCard = el('div')
+          .css({
+            backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px',
+            padding: '15px', marginBottom: '16px'
+          });
+
+        const header = el('div')
+          .css({ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px' });
+
+        const groupNameInput = el('input')
+          .attr('type', 'text')
+          .attr('placeholder', 'Optional group label')
+          .css({
+            flex: '1', fontSize: '14px', border: '1px solid #d1d5db', borderRadius: '8px', padding: '12px', minWidth: '220px'
+          });
+        groupNameInput.get().value = group.name;
+        groupNameInput.on('input', (e) => {
+          config.imageGroups[groupIdx].name = e.target.value;
+          updatePreview();
         });
 
-      const mode = image.inputMode || 'upload';
-      const modeRow = el('div').css({ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' });
-      modeRow.child([
-        el('span').text('Image source:').css({ fontSize: '13px', fontWeight: '600', color: '#374151', minWidth: '100px' }),
-        createToggleBtn('URL', mode === 'url', () => {
-          config.images[idx].inputMode = 'url';
-          updateUI();
-        }),
-        createToggleBtn('Upload', mode === 'upload', () => {
-          config.images[idx].inputMode = 'upload';
-          updateUI();
-        })
-      ]);
+        const addGroupImageBtn = el('button')
+          .text('+ Add Image')
+          .css({ padding: '10px 14px', borderRadius: '8px', border: 'none', backgroundColor: '#6366f1', color: '#fff', cursor: 'pointer' })
+          .on('click', () => {
+            config.imageGroups[groupIdx].images.push({ src: '', title: '', alt: '', url: '', borderRadius: '8px', inputMode: 'upload' });
+            updateUI();
+          });
 
-      const srcInput = createInput('Image URL (src)', image.src || '');
-      srcInput.on('input', (e) => { config.images[idx].src = e.target.value; updatePreview(); });
+        const columnToggle = el('div')
+          .css({ display: 'flex', gap: '6px', alignItems: 'center' })
+          .child([
+            el('span').text('Columns:').css({ fontSize: '13px', color: '#374151', whiteSpace: 'nowrap' }),
+            createToggleBtn('1', (group.imageColumns || 1) === 1, () => {
+              config.imageGroups[groupIdx].imageColumns = 1;
+              updateUI();
+            }),
+            createToggleBtn('2', (group.imageColumns || 1) === 2, () => {
+              config.imageGroups[groupIdx].imageColumns = 2;
+              updateUI();
+            })
+          ]);
 
-      // Upload button
-      const fileInput = el('input').attr('type', 'file').attr('accept', 'image/*').css({ display: 'none' });
-      fileInput.on('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          config.images[idx].src = ev.target.result;
+        const deleteGroupBtn = createDeleteBtn(() => {
+          config.imageGroups.splice(groupIdx, 1);
           updateUI();
-        };
-        reader.readAsDataURL(file);
+        });
+
+        header.child([groupNameInput, addGroupImageBtn, columnToggle, deleteGroupBtn]);
+        groupCard.child(header);
+
+        if (!group.images || group.images.length === 0) {
+          groupCard.child(emptyState('No images in this group yet.'));
+        }
+
+        group.images && group.images.forEach((image, idx) => {
+          const card = el('div')
+            .css({
+              backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
+              padding: '15px', marginBottom: '12px'
+            });
+
+          const mode = image.inputMode || 'upload';
+          const modeRow = el('div').css({ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' });
+          modeRow.child([
+            el('span').text('Image source:').css({ fontSize: '13px', fontWeight: '600', color: '#374151', minWidth: '100px' }),
+            createToggleBtn('URL', mode === 'url', () => {
+              config.imageGroups[groupIdx].images[idx].inputMode = 'url';
+              updateUI();
+            }),
+            createToggleBtn('Upload', mode === 'upload', () => {
+              config.imageGroups[groupIdx].images[idx].inputMode = 'upload';
+              updateUI();
+            })
+          ]);
+
+          const srcInput = createInput('Image URL (src)', image.src || '');
+          srcInput.on('input', (e) => { config.imageGroups[groupIdx].images[idx].src = e.target.value; updatePreview(); });
+
+          const fileInput = el('input').attr('type', 'file').attr('accept', 'image/*').css({ display: 'none' });
+          fileInput.on('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              config.imageGroups[groupIdx].images[idx].src = ev.target.result;
+              updateUI();
+            };
+            reader.readAsDataURL(file);
+          });
+
+          const uploadBtn = el('button')
+            .text('📁 Upload Image')
+            .css({
+              width: '100%', padding: '8px', backgroundColor: mode === 'upload' ? '#eef2ff' : '#f3f4f6',
+              border: '1px dashed #6366f1', borderRadius: '6px', cursor: mode === 'upload' ? 'pointer' : 'not-allowed',
+              fontSize: '12px', color: '#6366f1', fontWeight: '500', marginBottom: '8px', opacity: mode === 'upload' ? 1 : 0.6
+            })
+            .on('click', () => { if (mode === 'upload') fileInput.get().click(); });
+
+          const previewEl = el('div').css({ marginBottom: '8px', textAlign: 'center' });
+          if (image.src && image.src !== '') {
+            previewEl.child(
+              el('div').css({
+                width: '100%', maxHeight: '120px', borderRadius: image.borderRadius || '8px',
+                backgroundImage: `url(${image.src})`, backgroundSize: 'cover',
+                backgroundPosition: 'center', border: '1px solid #d1d5db', minHeight: '80px'
+              })
+            );
+          } else {
+            previewEl.child(
+              el('div').css({
+                width: '100%', minHeight: '120px', borderRadius: image.borderRadius || '8px',
+                border: '1px dashed #d1d5db', backgroundColor: '#ffffff',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                color: '#9ca3af', gap: '8px', padding: '12px'
+              }).child([
+                el('i').attr('class', 'fas fa-image').css({ fontSize: '28px' }),
+                el('span').text('No image selected').css({ fontSize: '12px' })
+              ])
+            );
+          }
+
+          const titleInput = createInput('Title (optional)', image.title || '');
+          titleInput.on('input', (e) => { config.imageGroups[groupIdx].images[idx].title = e.target.value; updatePreview(); });
+
+          const altInput = createInput('Alt text', image.alt || '');
+          altInput.on('input', (e) => { config.imageGroups[groupIdx].images[idx].alt = e.target.value; updatePreview(); });
+
+          const urlInput = createInput('Link URL (optional, clicks go here)', image.url || '');
+          urlInput.on('input', (e) => { config.imageGroups[groupIdx].images[idx].url = e.target.value; updatePreview(); });
+
+          const radiusRow = el('div').css({ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' });
+          const radiusLabel = el('span').text('Border Radius').css({ fontSize: '12px', color: '#6b7280', minWidth: '90px' });
+          const radiusSlider = el('input').attr('type', 'range').attr('min', '0').attr('max', '50')
+            .css({ flex: '1', accentColor: '#6366f1', cursor: 'pointer', height: '6px' });
+          radiusSlider.get().value = parseInt(image.borderRadius) || 8;
+          const radiusVal = el('span').text(image.borderRadius || '8px')
+            .css({ fontSize: '12px', color: '#6366f1', fontWeight: '600', minWidth: '40px', textAlign: 'right' });
+          radiusSlider.on('input', (e) => {
+            const v = `${e.target.value}px`;
+            radiusVal.text(v);
+            config.imageGroups[groupIdx].images[idx].borderRadius = v;
+            updatePreview();
+          });
+          radiusRow.child([radiusLabel, radiusSlider, radiusVal]);
+
+          const deleteBtn = createDeleteBtn(() => { config.imageGroups[groupIdx].images.splice(idx, 1); updateUI(); });
+
+          const cardChildren = [
+            el('div').css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }).child([
+              el('span').text(`Image ${idx + 1}`).css({ fontWeight: '600', fontSize: '14px', color: '#374151' }),
+              deleteBtn
+            ]),
+            modeRow,
+            ...(mode === 'url' ? [srcInput] : []),
+            ...(mode === 'upload' ? [uploadBtn, fileInput] : []),
+          ];
+          if (previewEl) cardChildren.push(previewEl);
+          cardChildren.push(titleInput, altInput, urlInput, radiusRow);
+
+          card.child(cardChildren);
+          groupCard.child(card);
+        });
+
+        section.child(groupCard);
       });
+    }
 
-      const uploadBtn = el('button')
-        .text('📁 Upload Image')
-        .css({
-          width: '100%', padding: '8px', backgroundColor: mode === 'upload' ? '#eef2ff' : '#f3f4f6',
-          border: '1px dashed #6366f1', borderRadius: '6px', cursor: mode === 'upload' ? 'pointer' : 'not-allowed',
-          fontSize: '12px', color: '#6366f1', fontWeight: '500', marginBottom: '8px', opacity: mode === 'upload' ? 1 : 0.6
-        })
-        .on('click', () => { if (mode === 'upload') fileInput.get().click(); });
+    if (config.images && config.images.length > 0) {
+      config.images.forEach((image, idx) => {
+        const card = el('div')
+          .css({
+            backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px',
+            padding: '15px', marginBottom: '12px'
+          });
 
-      // Image preview or placeholder
-      const previewEl = el('div').css({ marginBottom: '8px', textAlign: 'center' });
-      if (image.src && image.src !== '') {
-        previewEl.child(
-          el('div').css({
-            width: '100%', maxHeight: '120px', borderRadius: image.borderRadius || '8px',
-            backgroundImage: `url(${image.src})`, backgroundSize: 'cover',
-            backgroundPosition: 'center', border: '1px solid #d1d5db', minHeight: '80px'
+        const mode = image.inputMode || 'upload';
+        const modeRow = el('div').css({ display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' });
+        modeRow.child([
+          el('span').text('Image source:').css({ fontSize: '13px', fontWeight: '600', color: '#374151', minWidth: '100px' }),
+          createToggleBtn('URL', mode === 'url', () => {
+            config.images[idx].inputMode = 'url';
+            updateUI();
+          }),
+          createToggleBtn('Upload', mode === 'upload', () => {
+            config.images[idx].inputMode = 'upload';
+            updateUI();
           })
-        );
-      } else {
-        previewEl.child(
-          el('div').css({
-            width: '100%', minHeight: '120px', borderRadius: image.borderRadius || '8px',
-            border: '1px dashed #d1d5db', backgroundColor: '#ffffff',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            color: '#9ca3af', gap: '8px', padding: '12px'
-          }).child([
-            el('i').attr('class', 'fas fa-image').css({ fontSize: '28px' }),
-            el('span').text('No image selected').css({ fontSize: '12px' })
-          ])
-        );
-      }
+        ]);
 
-      const titleInput = createInput('Title (optional)', image.title || '');
-      titleInput.on('input', (e) => { config.images[idx].title = e.target.value; updatePreview(); });
+        const srcInput = createInput('Image URL (src)', image.src || '');
+        srcInput.on('input', (e) => { config.images[idx].src = e.target.value; updatePreview(); });
 
-      const altInput = createInput('Alt text', image.alt || '');
-      altInput.on('input', (e) => { config.images[idx].alt = e.target.value; updatePreview(); });
+        const fileInput = el('input').attr('type', 'file').attr('accept', 'image/*').css({ display: 'none' });
+        fileInput.on('change', (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            config.images[idx].src = ev.target.result;
+            updateUI();
+          };
+          reader.readAsDataURL(file);
+        });
 
-      const urlInput = createInput('Link URL (optional, clicks go here)', image.url || '');
-      urlInput.on('input', (e) => { config.images[idx].url = e.target.value; updatePreview(); });
+        const uploadBtn = el('button')
+          .text('📁 Upload Image')
+          .css({
+            width: '100%', padding: '8px', backgroundColor: mode === 'upload' ? '#eef2ff' : '#f3f4f6',
+            border: '1px dashed #6366f1', borderRadius: '6px', cursor: mode === 'upload' ? 'pointer' : 'not-allowed',
+            fontSize: '12px', color: '#6366f1', fontWeight: '500', marginBottom: '8px', opacity: mode === 'upload' ? 1 : 0.6
+          })
+          .on('click', () => { if (mode === 'upload') fileInput.get().click(); });
 
-      const radiusRow = el('div').css({ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' });
-      const radiusLabel = el('span').text('Border Radius').css({ fontSize: '12px', color: '#6b7280', minWidth: '90px' });
-      const radiusSlider = el('input').attr('type', 'range').attr('min', '0').attr('max', '50')
-        .css({ flex: '1', accentColor: '#6366f1', cursor: 'pointer', height: '6px' });
-      radiusSlider.get().value = parseInt(image.borderRadius) || 8;
-      const radiusVal = el('span').text(image.borderRadius || '8px')
-        .css({ fontSize: '12px', color: '#6366f1', fontWeight: '600', minWidth: '40px', textAlign: 'right' });
-      radiusSlider.on('input', (e) => {
-        const v = `${e.target.value}px`;
-        radiusVal.text(v);
-        config.images[idx].borderRadius = v;
-        updatePreview();
+        const previewEl = el('div').css({ marginBottom: '8px', textAlign: 'center' });
+        if (image.src && image.src !== '') {
+          previewEl.child(
+            el('div').css({
+              width: '100%', maxHeight: '120px', borderRadius: image.borderRadius || '8px',
+              backgroundImage: `url(${image.src})`, backgroundSize: 'cover',
+              backgroundPosition: 'center', border: '1px solid #d1d5db', minHeight: '80px'
+            })
+          );
+        } else {
+          previewEl.child(
+            el('div').css({
+              width: '100%', minHeight: '120px', borderRadius: image.borderRadius || '8px',
+              border: '1px dashed #d1d5db', backgroundColor: '#ffffff',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              color: '#9ca3af', gap: '8px', padding: '12px'
+            }).child([
+              el('i').attr('class', 'fas fa-image').css({ fontSize: '28px' }),
+              el('span').text('No image selected').css({ fontSize: '12px' })
+            ])
+          );
+        }
+
+        const titleInput = createInput('Title (optional)', image.title || '');
+        titleInput.on('input', (e) => { config.images[idx].title = e.target.value; updatePreview(); });
+
+        const altInput = createInput('Alt text', image.alt || '');
+        altInput.on('input', (e) => { config.images[idx].alt = e.target.value; updatePreview(); });
+
+        const urlInput = createInput('Link URL (optional, clicks go here)', image.url || '');
+        urlInput.on('input', (e) => { config.images[idx].url = e.target.value; updatePreview(); });
+
+        const radiusRow = el('div').css({ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' });
+        const radiusLabel = el('span').text('Border Radius').css({ fontSize: '12px', color: '#6b7280', minWidth: '90px' });
+        const radiusSlider = el('input').attr('type', 'range').attr('min', '0').attr('max', '50')
+          .css({ flex: '1', accentColor: '#6366f1', cursor: 'pointer', height: '6px' });
+        radiusSlider.get().value = parseInt(image.borderRadius) || 8;
+        const radiusVal = el('span').text(image.borderRadius || '8px')
+          .css({ fontSize: '12px', color: '#6366f1', fontWeight: '600', minWidth: '40px', textAlign: 'right' });
+        radiusSlider.on('input', (e) => {
+          const v = `${e.target.value}px`;
+          radiusVal.text(v);
+          config.images[idx].borderRadius = v;
+          updatePreview();
+        });
+        radiusRow.child([radiusLabel, radiusSlider, radiusVal]);
+
+        const deleteBtn = createDeleteBtn(() => { config.images.splice(idx, 1); updateUI(); });
+
+        const cardChildren = [
+          el('div').css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }).child([
+            el('span').text(`Image ${idx + 1}`).css({ fontWeight: '600', fontSize: '14px', color: '#374151' }),
+            deleteBtn
+          ]),
+          modeRow,
+          ...(mode === 'url' ? [srcInput] : []),
+          ...(mode === 'upload' ? [uploadBtn, fileInput] : []),
+        ];
+        if (previewEl) cardChildren.push(previewEl);
+        cardChildren.push(titleInput, altInput, urlInput, radiusRow);
+
+        card.child(cardChildren);
+        section.child(card);
       });
-      radiusRow.child([radiusLabel, radiusSlider, radiusVal]);
+    }
 
-      const deleteBtn = createDeleteBtn(() => { config.images.splice(idx, 1); updateUI(); });
-
-      const cardChildren = [
-        el('div').css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }).child([
-          el('span').text(`Image ${idx + 1}`).css({ fontWeight: '600', fontSize: '14px', color: '#374151' }),
-          deleteBtn
-        ]),
-        modeRow,
-        ...(mode === 'url' ? [srcInput] : []),
-        ...(mode === 'upload' ? [uploadBtn, fileInput] : []),
-      ];
-      if (previewEl) cardChildren.push(previewEl);
-      cardChildren.push(titleInput, altInput, urlInput, radiusRow);
-
-      card.child(cardChildren);
-      section.child(card);
-    });
-
-    if (config.images.length === 0) {
+    if ((!config.imageGroups || config.imageGroups.length === 0) && (!config.images || config.images.length === 0)) {
       section.child(emptyState('No images yet. Add one to display on your page.'));
     }
 
@@ -1759,11 +2338,8 @@ export default function createEditorUI(initConfig = {}) {
 
       const iconField = buildIconPickerField('Icon', donation.icon || '', (v) => { config.donations[idx].icon = v; updatePreview(); });
 
-      const colorInput = createInput('Button color (e.g. #ff6b6b)', donation.buttonColor || '');
-      colorInput.on('input', (e) => { config.donations[idx].buttonColor = e.target.value; updatePreview(); });
-
-      const textColorInput = createInput('Button text color', donation.buttonText || '');
-      textColorInput.on('input', (e) => { config.donations[idx].buttonText = e.target.value; updatePreview(); });
+      const colorInput = buildColorRow('Button Background', donation.buttonColor || '', '#ff6b6b', (v) => { config.donations[idx].buttonColor = v; updatePreview(); });
+      const textColorInput = buildColorRow('Button Text Color', donation.buttonText || '', '#ffffff', (v) => { config.donations[idx].buttonText = v; updatePreview(); });
 
       const deleteBtn = createDeleteBtn(() => { config.donations.splice(idx, 1); updateUI(); });
 
@@ -3107,52 +3683,206 @@ export default function createEditorUI(initConfig = {}) {
     return Object.values(config.theme).some(v => v !== undefined && v !== '');
   }
 
-  function createThemeSelect() {
-    const select = el('select')
+  function createThemePicker() {
+    const container = el('div');
+    let searchQuery = '';
+    let selectedCategory = 'All';
+
+    const allThemes = Object.entries(themes).map(([key, theme]) => ({ key, theme }));
+    const categories = ['All', ...Array.from(new Set(allThemes.map(({ theme }) => theme.category || 'General')))]
+      .sort((a, b) => (a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)));
+
+    const searchInput = el('input')
+      .attr('type', 'search')
+      .attr('placeholder', 'Search themes...')
       .css({
         width: '100%',
-        padding: '10px',
+        padding: '12px 14px',
         border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        fontSize: '14px'
+        borderRadius: '10px',
+        fontSize: '14px',
+        marginBottom: '14px',
+        boxSizing: 'border-box'
       })
-      .on('change', (e) => {
-        config.themeName = e.target.value;
-        config.theme = null;
-        config.bgMode = '';
-        config.bgColor = '';
-        config.bgGradient = '';
-        config.bgImage = '';
-        updateUI();
+      .on('input', (e) => {
+        searchQuery = e.target.value.toLowerCase();
+        renderThemes();
       });
 
-    Object.keys(themes).forEach(name => {
-      const option = el('option')
-        .attr('value', name)
-        .text(name.charAt(0).toUpperCase() + name.slice(1));
-      if (config.themeName === name) {
-        option.get().selected = true;
-      }
-      select.child(option);
-    });
+    const categoryRow = el('div')
+      .css({ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' });
 
-    return select;
+    const grid = el('div')
+      .css({
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '14px'
+      });
+
+    const renderCategoryButtons = () => {
+      categoryRow.empty();
+      categories.forEach(category => {
+        categoryRow.child(
+          el('button')
+            .text(category)
+            .css({
+              padding: '8px 14px',
+              borderRadius: '999px',
+              border: selectedCategory === category ? '1px solid #6366f1' : '1px solid #d1d5db',
+              backgroundColor: selectedCategory === category ? '#eef2ff' : 'transparent',
+              color: selectedCategory === category ? '#3730a3' : '#374151',
+              cursor: 'pointer',
+              fontSize: '13px'
+            })
+            .on('click', () => {
+              selectedCategory = category;
+              renderCategoryButtons();
+              renderThemes();
+            })
+        );
+      });
+      if (categoryRow.el.isConnected) categoryRow.get();
+    };
+
+    const renderThemes = () => {
+      grid.empty();
+      const filtered = allThemes.filter(({ key, theme }) => {
+        const matchesCategory = selectedCategory === 'All' || (theme.category || 'General') === selectedCategory;
+        const matchesSearch = !searchQuery || key.toLowerCase().includes(searchQuery) || (theme.label || key).toLowerCase().includes(searchQuery) || (theme.description || '').toLowerCase().includes(searchQuery);
+        return matchesCategory && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        grid.child(
+          el('div')
+            .css({
+              gridColumn: '1 / -1',
+              backgroundColor: '#f8fafc',
+              border: '1px dashed #d1d5db',
+              borderRadius: '14px',
+              padding: '28px',
+              textAlign: 'center'
+            })
+            .child(
+              el('p').text('No themes match your search.').css({ fontSize: '14px', color: '#6b7280', margin: '0' })
+            )
+        );
+        if (grid.el.isConnected) grid.get();
+        return;
+      }
+
+      filtered.forEach(({ key, theme }) => {
+        const isSelected = config.themeName === key;
+        const card = el('div')
+          .css({
+            backgroundColor: '#ffffff',
+            border: isSelected ? '2px solid #6366f1' : '1px solid #e5e7eb',
+            borderRadius: '18px',
+            padding: '16px',
+            cursor: 'pointer',
+            boxShadow: isSelected ? '0 12px 28px rgba(99, 102, 241, 0.14)' : '0 1px 3px rgba(15, 23, 42, 0.08)',
+            transition: 'transform 0.2s, box-shadow 0.2s'
+          })
+          .on('click', () => {
+            config.themeName = key;
+            config.theme = null;
+            config.bgMode = '';
+            config.bgColor = '';
+            config.bgGradient = '';
+            config.bgImage = '';
+            updateUI();
+          })
+          .on('mouseenter', () => {
+            card.css({ transform: 'translateY(-1px)' });
+          })
+          .on('mouseleave', () => {
+            card.css({ transform: 'translateY(0)' });
+          });
+
+        const preview = el('div')
+          .css({
+            height: '110px',
+            borderRadius: '14px',
+            marginBottom: '14px',
+            background: theme.backgroundGradient || theme.backgroundColor || '#f3f4f6'
+          });
+
+        const label = el('div')
+          .text(theme.label || key)
+          .css({ fontSize: '16px', fontWeight: '700', color: '#111827', marginBottom: '6px' });
+
+        const description = el('div')
+          .text(theme.description || '')
+          .css({ fontSize: '13px', color: '#6b7280', lineHeight: '1.5', minHeight: '40px' });
+
+        const footer = el('div')
+          .css({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' })
+          .child([
+            el('span')
+              .text(theme.category || 'General')
+              .css({ fontSize: '12px', color: '#4b5563', padding: '4px 8px', borderRadius: '999px', backgroundColor: '#f3f4f6' }),
+            el('span')
+              .text(isSelected ? 'Selected' : 'Choose')
+              .css({ fontSize: '12px', color: isSelected ? '#2563eb' : '#6b7280', fontWeight: '600' })
+          ]);
+
+        card.child([preview, label, description, footer]);
+        grid.child(card);
+      });
+      if (grid.el.isConnected) grid.get();
+    };
+
+    renderCategoryButtons();
+    renderThemes();
+
+    container.child([searchInput, categoryRow, grid]);
+    return container;
   }
 
   function updatePreview() {
     const previewDom = previewPanel.get();
-    previewDom.innerHTML = '';
     previewDom.style.position = 'relative';
     previewDom.style.overflow = 'hidden';
+    previewDom.style.overflowX = 'hidden';
 
-    const scrollWrapper = document.createElement('div');
-    scrollWrapper.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;overflow-x:hidden;';
+    if (!previewIframe) {
+      previewDom.innerHTML = '';
+      previewIframe = document.createElement('iframe');
+      previewIframe.style.width = '100%';
+      previewIframe.style.height = '100%';
+      previewIframe.style.border = 'none';
+      previewIframe.style.display = 'block';
+      previewIframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+
+      const html = `<!DOCTYPE html><html><head><base target="_blank"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" /><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:auto;}</style></head><body></body></html>`;
+      previewIframe.srcdoc = html;
+      previewIframe.onload = () => {
+        const doc = previewIframe.contentDocument || previewIframe.contentWindow?.document;
+        if (!doc) return;
+        previewIframeReady = true;
+        if (pendingPreviewRoot) {
+          doc.body.innerHTML = '';
+          doc.body.appendChild(doc.adoptNode(pendingPreviewRoot));
+          pendingPreviewRoot = null;
+        }
+      };
+
+      previewDom.appendChild(previewIframe);
+    }
 
     const preview = createLinktreeUI({ ...config, isPreview: true });
-    if (preview && preview.get) {
-      scrollWrapper.appendChild(preview.get());
+    const root = preview && preview.get ? preview.get() : null;
+    if (!root) return;
+
+    pendingPreviewRoot = root;
+    if (previewIframeReady && previewIframe && previewIframe.contentDocument) {
+      const doc = previewIframe.contentDocument || previewIframe.contentWindow?.document;
+      if (doc) {
+        doc.body.innerHTML = '';
+        doc.body.appendChild(doc.adoptNode(root));
+        pendingPreviewRoot = null;
+      }
     }
-    previewDom.appendChild(scrollWrapper);
   }
 
   // ==================== INIT ====================
